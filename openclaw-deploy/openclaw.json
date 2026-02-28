@@ -1,0 +1,10 @@
+{
+  "agents": {
+    "defaults": {
+      "sandbox": { "mode": "non-main" }
+    }
+  },
+  "channels": {
+    "telegram": { "enabled": true }
+  }
+}

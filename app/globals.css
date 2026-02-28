@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #000000;
+  --foreground: #E5E5E5;
+  --point: #4F46E5;
+  --accent: #06B6D4;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 부드러운 스크롤 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+}
+
+/* 입력창 스타일 */
+input, textarea {
+  outline: none;
+}
+
+/* 부드러운 전환 */
+* {
+  transition-property: background-color, border-color, color, opacity, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* 비디오/이미지 최대 너비 */
+img, video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 선택 스타일 */
+::selection {
+  background-color: var(--point);
+  color: white;
+}
