@@ -1,5 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import { Navigation } from '@/components/Navigation';
+import { GuestBanner } from '@/components/GuestBanner';
 
 export const metadata: Metadata = {
   title: '결 - GYEOL',
@@ -15,7 +17,9 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className="bg-background text-foreground antialiased">
+        <GuestBanner />
         {children}
+        <Navigation />
       </body>
     </html>
   );

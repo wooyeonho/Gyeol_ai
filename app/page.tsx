@@ -23,7 +23,8 @@ export default function Home() {
     userId, 
     setUserId, 
     agent, 
-    setAgent, 
+    setAgent,
+    setAgentStatus,
     setMessages,
     setIsGuest 
   } = useGyeolStore();
@@ -31,14 +32,6 @@ export default function Home() {
   const supabase = createClient();
   
   const init = useCallback(async () => {
-    let uid = localStorage.getItem('gyeol_guest_id');
-    if (!uid) {
-      uid = crypto.randomUUID();
-      localStorage.setItem('gyeol_guest_id', uid);
-    }
-    setUserId(uid);
-    setIsGuest(true);
-    
     if (!supabase) {
       setShowBirth(true);
       setIsLoading(false);
@@ -46,6 +39,36 @@ export default function Home() {
     }
     
     try {
+      // Supabase Anonymous Sign-In
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // 익명 로그인
+        const { data, error } = await supabase.auth.signInAnonymously();
+        if (error) {
+          console.error('Anonymous sign-in error:', error);
+          setShowBirth(true);
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      // 사용자 정보 가져오기
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setShowBirth(true);
+        setIsLoading(false);
+        return;
+      }
+      
+      const uid = user.id;
+      const isGuest = user.is_anonymous ?? true;
+      
+      setUserId(uid);
+      setIsGuest(isGuest);
+      
+      // 에이전트 조회
       const { data: agt } = await supabase
         .from('agents')
         .select('*')
@@ -68,13 +91,31 @@ export default function Home() {
         .limit(50);
       
       if (msgs) setMessages(msgs);
+      
+      // 에이전트 상태 조회
+      if (agt) {
+        const { data: status } = await supabase
+          .from('agent_status')
+          .select('*')
+          .eq('agent_id', agt.id)
+          .single();
+        
+        if (status) {
+          setAgentStatus({
+            condition: status.condition || 'normal',
+            mood: status.mood || 'neutral',
+            energy: status.energy || 100,
+            intimacy_score: status.intimacy_score || 0,
+          });
+        }
+      }
     } catch (error) {
       console.error('Error loading agent:', error);
       setShowBirth(true);
     }
     
     setIsLoading(false);
-  }, [supabase, setUserId, setIsGuest, setAgent, setMessages]);
+  }, [supabase, setUserId, setIsGuest, setAgent, setAgentStatus, setMessages]);
   
   useEffect(() => {
     if (supabase) {

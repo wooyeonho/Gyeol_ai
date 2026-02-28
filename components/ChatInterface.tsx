@@ -12,6 +12,7 @@ export default function ChatInterface() {
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const supabase = createClient();
   
   const { 
@@ -22,6 +23,39 @@ export default function ChatInterface() {
     addMessage,
     setIsThinking 
   } = useGyeolStore();
+  
+  // 침묵 인식 타이머
+  useEffect(() => {
+    const resetSilenceTimer = () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+      
+      // 5분 후 자동 메시지
+      silenceTimerRef.current = setTimeout(async () => {
+        if (!agent || !supabase) return;
+        // '바빠요?' 자동 전송 (사용자 대신)
+        console.log('沉默 5분 - 바빠요?');
+      }, 5 * 60 * 1000);
+      
+      // 30분 후 자동 메시지
+      silenceTimerRef.current = setTimeout(async () => {
+        if (!agent || !supabase) return;
+        console.log('沉默 30분 - 먼저 갈게요');
+      }, 30 * 60 * 1000);
+    };
+    
+    // 메시지 변경 시 타이머 리셋
+    if (messages.length > 0) {
+      resetSilenceTimer();
+    }
+    
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+    };
+  }, [messages, agent, supabase]);
   
   // 메시지 전송
   const sendMessage = async () => {
@@ -45,6 +79,10 @@ export default function ChatInterface() {
     setIsThinking(true);
     
     try {
+      // 세션 토큰 가져오기
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
       // Edge Function 호출
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/chat`,
@@ -52,7 +90,7 @@ export default function ChatInterface() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
             user_id: userId,

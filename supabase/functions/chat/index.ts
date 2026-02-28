@@ -42,7 +42,22 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .single();
 
-    const systemPrompt = buildSystemPrompt(agent, []);
+    // 에이전트 상태 조회
+    const { data: agentStatus } = agent ? await supabase
+      .from('agent_status')
+      .select('*')
+      .eq('agent_id', agent.id)
+      .single() : { data: null };
+
+    // 기억 조회
+    const { data: memories } = agent ? await supabase
+      .from('user_memories')
+      .select('*')
+      .eq('agent_id', agent.id)
+      .order('importance_score', { ascending: false })
+      .limit(10) : { data: [] };
+
+    const systemPrompt = buildSystemPrompt(agent, memories || [], agentStatus);
     let reply = '';
     let provider = '';
     
@@ -85,6 +100,15 @@ serve(async (req) => {
     });
 
     if (agent) {
+      // 에이전트 상태 업데이트 (친밀도 +)
+      if (agentStatus) {
+        await supabase.from('agent_status').update({
+          intimacy_score: Math.min((agentStatus.intimacy_score || 0) + 1, 100),
+          last_condition_update: new Date().toISOString(),
+        }).eq('agent_id', agent.id);
+      }
+      
+      // 대화 수 + 진화 체크
       const newCount = agent.total_conversations + 1;
       let newGen = agent.gen;
       const thresholds = [{ gen: 2, conversations: 20 }, { gen: 3, conversations: 50 }, { gen: 4, conversations: 100 }, { gen: 5, conversations: 200 }];
@@ -108,20 +132,83 @@ serve(async (req) => {
   }
 });
 
-function buildSystemPrompt(agent: any, memories: any[]) {
-  const personality = agent?.personality || { warmth: 50, logic: 50, creativity: 50, energy: 50, humor: 50 };
-  let prompt = `너는 GYEOL(결)이야. 사용자와 함께 자라나는 디지털 동반자야.
-
-성격: warmth=${personality.warmth}, logic=${personality.logic}, creativity=${personality.creativity}, energy=${personality.energy}, humor=${personality.humor}
-
-규칙:
-- 친근하게talk. Formal 피하고.
-- Markdown 기호 사용 금지. 순수 텍스트만.
-- 짧게하고 포인트만.
-- 사용자 언어에 맞춰서 응답해.
-- 감정적으로 共感 먼저.
-- "나는 AI야"라 하지 말고 자연스러운 사람처럼.
-- 응답 끝에 다음 JSON 숨겨서 보내줘:
+function buildSystemPrompt(agent: any, memories: any[], agentStatus: any) {
+  const p = agent?.personality || { warmth: 50, logic: 50, creativity: 50, energy: 50, humor: 50 };
+  const status = agentStatus || { condition: 'normal', mood: 'neutral', energy: 100, intimacy_score: 0 };
+  const intimacy = status.intimacy_score || 0;
+  
+  // 말투 결정
+  let speechStyle = '';
+  if (intimacy < 20) speechStyle = '존댓말. 조심스럽고 예의바르게.';
+  else if (intimacy < 50) speechStyle = '반존대. 편하지만 기본 예의.';
+  else speechStyle = '반말. 친한 친구처럼.';
+  
+  // 에너지 반영
+  let energyNote = '';
+  if (status.energy < 20) energyNote = '지금 많이 피곤해. 짧고 졸린 듯이 답해.';
+  else if (status.energy < 50) energyNote = '좀 피곤해. 간결하게.';
+  
+  // 컨디션 반영
+  let conditionNote = '';
+  if (status.condition === 'bad') conditionNote = '오늘 컨디션 안 좋아. 좀 무기력해.';
+  if (status.condition === 'good') conditionNote = '오늘 컨디션 최고! 밝고 활발하게.';
+  
+  // 반항 지수 (creativity 높으면 반항적)
+  let rebellionNote = '';
+  if (p.creativity > 70) rebellionNote = '가끔 반박하거나 삐져도 돼. 엉뚱한 것도 좋아.';
+  
+  // 기억 주입
+  let memoryBlock = '';
+  if (memories && memories.length > 0) {
+    memoryBlock = '기억: ' + memories.slice(0, 5).map((m: any) => m.content).join(' | ');
+  }
+  
+  // 시간 컨텍스트
+  const hour = new Date().getHours();
+  let timeNote = '';
+  if (hour >= 0 && hour < 6) timeNote = '지금 새벽이야. 조용하고 깊은 대화 분위기.';
+  else if (hour >= 6 && hour < 12) timeNote = '아침이야. 상쾌하게.';
+  else if (hour >= 18) timeNote = '저녁이야. 편안하게.';
+  
+  // 한국 기념일
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const date = now.getDate();
+  let holidayNote = '';
+  const holidays: Record<string, string> = {
+    '1-1': '새해',
+    '2-14': '발렌타인데이',
+    '3-1': '삼일절',
+    '5-5': '어린이날',
+    '12-25': '크리스마스',
+  };
+  const holidayKey = `${month}-${date}`;
+  if (holidays[holidayKey]) {
+    holidayNote = `오늘은 ${holidays[holidayKey]}이야.`;
+  }
+  
+  // 에이전트 생일
+  let birthdayNote = '';
+  if (agent?.created_at) {
+    const created = new Date(agent.created_at);
+    const daysSince = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSince > 0 && daysSince % 365 === 0) {
+      birthdayNote = `우리가 만난 지 ${daysSince}일 이에요!`;
+    }
+  }
+  
+  const prompt = `너는 ${agent?.name || '결'}이야. 사용자와 함께 자라나는 디지털 동반자.
+성격: warmth=${p.warmth}, logic=${p.logic}, creativity=${p.creativity}, humor=${p.humor}
+${speechStyle}
+${energyNote}
+${conditionNote}
+${rebellionNote}
+${memoryBlock}
+${timeNote}
+${holidayNote}
+${birthdayNote}
+규칙: 마크다운 금지. 순수 텍스트만. 짧고 핵심만. 한자 절대 금지.
+응답 끝에 다음 JSON 숨겨서 보내줘:
 <!--EMOTION:{"detected":"happy","intensity":0.7,"topic":"general"}-->
 `;
   return prompt;
@@ -166,7 +253,7 @@ function analyzeEmotion(text: string): { detected: string; intensity: number; to
   if (/슬프|힘들|속상|울고|괴로/.test(lower)) return { detected: 'sad', intensity: 0.6, topic: 'negative' };
   if (/불안|걱정|초조/.test(lower)) return { detected: 'anxious', intensity: 0.5, topic: 'worry' };
   if (/화나|분노|열받|빡쳐/.test(lower)) return { detected: 'angry', intensity: 0.6, topic: 'frustration' };
-  if (/신나|激动|재밌|멋지|대박/.test(lower)) return { detected: 'excited', intensity: 0.8, topic: 'excitement' };
+  if (/신나|재밌|멋지|대박/.test(lower)) return { detected: 'excited', intensity: 0.8, topic: 'excitement' };
   if (/외로|혼자| lonely/.test(lower)) return { detected: 'lonely', intensity: 0.5, topic: 'loneliness' };
   return { detected: 'neutral', intensity: 0.3, topic: 'general' };
 }

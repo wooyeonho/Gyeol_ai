@@ -97,15 +97,6 @@ export interface ApprovalRequest {
   resolved_at?: string;
 }
 
-export interface MoltbookPost {
-  id: string;
-  agent_id: string;
-  content: string;
-  likes_count: number;
-  comments_count: number;
-  created_at: string;
-}
-
 export interface UserProfile {
   user_id: string;
   tool_vs_friend: number;

@@ -12,6 +12,12 @@ interface GyeolState {
   
   // Agent
   agent: Agent | null;
+  agentStatus: {
+    condition: string;
+    mood: string;
+    energy: number;
+    intimacy_score: number;
+  } | null;
   messages: Message[];
   isLoading: boolean;
   isThinking: boolean;
@@ -26,6 +32,7 @@ interface GyeolState {
   setUserId: (userId: string | null) => void;
   setIsGuest: (isGuest: boolean) => void;
   setAgent: (agent: Agent | null) => void;
+  setAgentStatus: (status: GyeolState['agentStatus']) => void;
   setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
   setIsLoading: (isLoading: boolean) => void;
@@ -41,6 +48,7 @@ export const useGyeolStore = create<GyeolState>((set) => ({
   userId: null,
   isGuest: true,
   agent: null,
+  agentStatus: null,
   messages: [],
   isLoading: false,
   isThinking: false,
@@ -51,6 +59,7 @@ export const useGyeolStore = create<GyeolState>((set) => ({
   setUserId: (userId) => set({ userId }),
   setIsGuest: (isGuest) => set({ isGuest }),
   setAgent: (agent) => set({ agent }),
+  setAgentStatus: (agentStatus) => set({ agentStatus }),
   setMessages: (messages) => set({ messages }),
   addMessage: (message) => set((state) => ({ 
     messages: [...state.messages, message] 
