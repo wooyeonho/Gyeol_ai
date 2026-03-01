@@ -1,63 +1,62 @@
-/**
- * Middleware - 인증 및 리다이렉션
- */
-
-import { createServerClient } from '@supabase/ssr';
-import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  });
+  let supabaseResponse = NextResponse.next({
+    request,
+  })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
-          cookiesToSet.forEach(({ name, value }) => {
-            request.cookies.set(name, value);
-          });
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          });
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-
-  // 비로그인 + 비익명 사용자는 /login으로
-  if (!user && pathname !== '/login' && pathname !== '/landing') {
-    // 단, /.next는 허용
-    if (!pathname.startsWith('/_next')) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing Supabase environment variables in middleware')
+    return supabaseResponse
   }
 
-  // 로그인한 사용자가 /login 접근 시 /로
-  if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
+  try {
+    const supabase = createServerClient(
+      supabaseUrl,
+      supabaseKey,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              request.cookies.set(name, value)
+            )
+            supabaseResponse = NextResponse.next({
+              request,
+            })
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, options)
+            )
+          },
+        },
+      }
+    )
 
-  return response;
+    // IMPORTANT: DO NOT REMOVE THIS LINE
+    // supabase.auth.getUser()를 호출해야 쿠키 갱신 로직이 실행됨
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // (선택) 여기서 user 존재 여부에 따른 리다이렉트 로직 구현 가능
+    // if (!user && request.nextUrl.pathname.startsWith('/protected')) {
+    //   return NextResponse.redirect(new URL('/login', request.url))
+    // }
+
+    return supabaseResponse
+  } catch (e) {
+    console.error('Middleware error:', e)
+    // 에러 발생 시 크래시 내지 말고 그냥 통과시킬 것 (Next.js 15 제약 우회)
+    return NextResponse.next({ request })
+  }
 }
 
 export const config = {
   matcher: [
-    // 정적 에셋, API, 이미지 등 제외
-    '/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-};
+}
