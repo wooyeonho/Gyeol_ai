@@ -8,6 +8,18 @@ import { useState, useRef, useEffect } from 'react';
 import { useGyeolStore } from '@/store/gyeol-store';
 import { createClient } from '@/lib/supabase/client';
 
+// 감정 분석 (서버와 동일한 로직)
+function analyzeEmotion(text: string): { detected: string; intensity: number; topic: string } {
+  const lower = text.toLowerCase();
+  if (/기쁘|좋|행복|재미|신나|뿌듯/.test(lower)) return { detected: 'happy', intensity: 0.7, topic: 'positive' };
+  if (/슬프|힘들|속상|울고|괴로/.test(lower)) return { detected: 'sad', intensity: 0.6, topic: 'negative' };
+  if (/불안|걱정|초조/.test(lower)) return { detected: 'anxious', intensity: 0.5, topic: 'worry' };
+  if (/화나|분노|열받|빡쳐/.test(lower)) return { detected: 'angry', intensity: 0.6, topic: 'frustration' };
+  if (/신나|재밌|멋지|대박/.test(lower)) return { detected: 'excited', intensity: 0.8, topic: 'excitement' };
+  if (/외로|혼자| lonely/.test(lower)) return { detected: 'lonely', intensity: 0.5, topic: 'loneliness' };
+  return { detected: 'neutral', intensity: 0.3, topic: 'general' };
+}
+
 export default function ChatInterface() {
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -22,6 +34,7 @@ export default function ChatInterface() {
     userId, 
     isLoading,
     addMessage,
+    updateMessage,
     setIsThinking 
   } = useGyeolStore();
   
@@ -120,7 +133,57 @@ export default function ChatInterface() {
         throw new Error('Failed to get response');
       }
       
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      let reply = '';
+      let emotion = { detected: 'neutral', intensity: 0.5, topic: '' };
+      
+      if (contentType.includes('text/event-stream')) {
+        // SSE 스트리밍 처리
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No response body');
+        
+        const decoder = new TextDecoder();
+        let buffer = '';
+        
+        // 즉시 화면에 표시
+        const tempId = crypto.randomUUID();
+        addMessage({
+          id: tempId,
+          agent_id: agent.id,
+          user_id: userId,
+          role: 'assistant',
+          content: '',
+          created_at: new Date().toISOString(),
+        });
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') break;
+              try {
+                reply += data;
+                // 실시간으로 메시지 업데이트
+                updateMessage(tempId, { content: reply });
+              } catch {}
+            }
+          }
+        }
+        
+        emotion = analyzeEmotion(reply);
+      } else {
+        // 일반 JSON 응답
+        const data = await response.json();
+        reply = data.reply || data.content || '';
+        emotion = data.emotion || { detected: 'neutral', intensity: 0.5, topic: '' };
+      }
       
       // 결의 응답 추가
       const assistantMsg = {
@@ -128,9 +191,9 @@ export default function ChatInterface() {
         agent_id: agent.id,
         user_id: userId,
         role: 'assistant' as const,
-        content: data.reply,
-        emotion: data.emotion,
-        provider: data.provider,
+        content: reply,
+        emotion,
+        provider: 'groq',
         created_at: new Date().toISOString(),
       };
       addMessage(assistantMsg);

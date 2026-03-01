@@ -6,7 +6,7 @@
 -- 사용자 기억 테이블
 CREATE TABLE IF NOT EXISTS user_memories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
   category TEXT NOT NULL CHECK (category IN ('taste', 'emotion', 'event', 'anniversary', 'topic')),
   content TEXT NOT NULL,
@@ -62,24 +62,26 @@ CREATE TRIGGER on_agent_created
   EXECUTE FUNCTION create_agent_status();
 
 -- 코인 추가 RPC
-CREATE OR REPLACE FUNCTION add_coins(user_id UUID, amount INTEGER)
-RETURNS void AS $$
+CREATE OR REPLACE FUNCTION add_coins(p_user_id UUID, p_amount INTEGER)
+RETURNS VOID AS $$
 BEGIN
   UPDATE profiles
-  SET coins = COALESCE(coins, 0) + amount
-  WHERE id = user_id;
+  SET coins = COALESCE(coins, 0) + p_amount,
+      updated_at = NOW()
+  WHERE id = p_user_id;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 에너지 감소 RPC
-CREATE OR REPLACE FUNCTION decrease_energy(agent_id UUID, amount INTEGER)
-RETURNS void AS $$
+CREATE OR REPLACE FUNCTION decrease_energy(p_agent_id UUID, p_amount INTEGER)
+RETURNS VOID AS $$
 BEGIN
   UPDATE agent_status
-  SET energy = GREATEST(0, energy - amount)
-  WHERE agent_id = agent_id;
+  SET energy = GREATEST(0, energy - p_amount),
+      updated_at = NOW()
+  WHERE agent_id = p_agent_id;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 시스템 상태 테이블 (Kill Switch 등)
 CREATE TABLE IF NOT EXISTS system_state (

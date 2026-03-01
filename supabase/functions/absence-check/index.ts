@@ -48,8 +48,8 @@ serve(async (req) => {
       } else if (daysSince >= 7 && daysSince < 30) {
         // energy -= 20
         await supabase.rpc('decrease_energy', { 
-          agent_id: agent.id, 
-          amount: 20 
+          p_agent_id: agent.id, 
+          p_amount: 20 
         }).catch(() => {});
       } else if (daysSince >= 30) {
         // sleepy 모드

@@ -33,8 +33,8 @@ serve(async (req) => {
     for (const profile of profiles || []) {
       // 코인 지급
       const { error: updateError } = await supabase.rpc('add_coins', {
-        user_id: profile.id,
-        amount: 10,
+        p_user_id: profile.id,
+        p_amount: 10,
       });
 
       if (!updateError) {

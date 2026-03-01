@@ -1,6 +1,6 @@
 /**
  * ApprovalPage - 결의 변경 요청 승인
- * GYEOL이 스스로 바꾸고 싶은 것들을主人가 승인
+ * GYEOL이 스스로 바꾸고 싶은 것들을 주인이 승인
  */
 
 'use client';

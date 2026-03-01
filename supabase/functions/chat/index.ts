@@ -43,7 +43,7 @@ serve(async (req) => {
       .eq('key', 'kill_switch')
       .single();
     
-    if (killSwitch?.value === 'true') {
+    if (killSwitch?.value?.active === true) {
       return new Response(JSON.stringify({ error: 'Service temporarily unavailable' }), {
         status: 503,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -74,23 +74,89 @@ serve(async (req) => {
     const systemPrompt = buildSystemPrompt(agent, memories || [], agentStatus);
     let reply = '';
     let provider = '';
+    let useStreaming = true;
     
     try {
-      reply = await callGroq(systemPrompt, message);
-      provider = 'groq';
-    } catch (e) {
-      console.error('Groq failed:', e);
-      try {
-        reply = await callDeepSeek(systemPrompt, message);
-        provider = 'deepseek';
-      } catch (e2) {
-        console.error('DeepSeek failed:', e2);
+      // 스트리밍 시도
+      const stream = await callGroqStream(systemPrompt, message);
+      
+      // 스트리밍 응답 반환 +后台 저장
+      // 스트리밍 응답을 먼저 클라이언트에 보내고, 완료 후 DB에 저장
+      const encoder = new TextEncoder();
+      const { readable, writable } = new TransformStream();
+      
+      const streamWriter = writable.getWriter();
+      let fullReply = '';
+      
+      //后台에서 스트림 읽으며 저장
+      (async () => {
         try {
-          reply = await callGemini(systemPrompt, message);
-          provider = 'gemini';
+          const reader = stream.getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = new TextDecoder().decode(value);
+            fullReply += chunk;
+            await streamWriter.write(value);
+          }
+        } catch {}
+        streamWriter.close();
+        
+        // 스트림 완료 후 DB 저장
+        if (fullReply && agent) {
+          const emotion = analyzeEmotion(fullReply);
+          await supabase.from('conversations').insert({
+            agent_id: agent.id,
+            user_id,
+            role: 'assistant',
+            content: fullReply,
+            emotion,
+            provider: 'groq',
+          });
+          
+          // 에이전트 상태 업데이트
+          if (agentStatus) {
+            await supabase.from('agent_status').update({
+              intimacy_score: Math.min((agentStatus.intimacy_score || 0) + 1, 100),
+              mood: emotion.detected,
+              updated_at: new Date().toISOString(),
+            }).eq('agent_id', agent.id);
+          }
+        }
+      })();
+      
+      return new Response(readable, {
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    } catch (e) {
+      console.error('Groq stream failed, falling back:', e);
+      useStreaming = false;
+    }
+    
+    // 폴백: non-streaming
+    if (!useStreaming) {
+      try {
+        reply = await callGroq(systemPrompt, message);
+        provider = 'groq';
+      } catch (e2) {
+        console.error('Groq failed:', e2);
+        try {
+          reply = await callDeepSeek(systemPrompt, message);
+          provider = 'deepseek';
         } catch (e3) {
-          reply = '...';
-          provider = 'error';
+          console.error('DeepSeek failed:', e3);
+          try {
+            reply = await callGemini(systemPrompt, message);
+            provider = 'gemini';
+          } catch (e4) {
+            reply = '...';
+            provider = 'error';
+          }
         }
       }
     }
@@ -226,6 +292,64 @@ ${birthdayNote}
 <!--EMOTION:{"detected":"happy","intensity":0.7,"topic":"general"}-->
 `;
   return prompt;
+}
+
+async function callGroqStream(systemPrompt: string, message: string): Promise<ReadableStream<Uint8Array>> {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${Deno.env.get('GROQ_API_KEY')}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      model: 'llama-3.3-70b-versatile', 
+      messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: message }], 
+      max_tokens: 300, 
+      temperature: 0.8,
+      stream: true 
+    }),
+  });
+  if (!response.ok) throw new Error(`Groq error: ${response.status}`);
+  
+  // SSE를 ReadableStream으로 변환
+  const body = response.body!;
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  
+  const stream = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) {
+        controller.close();
+        return;
+      }
+      
+      // SSE 파싱
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') {
+            controller.close();
+            return;
+          }
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content || '';
+            if (content) {
+              controller.enqueue(new TextEncoder().encode(content));
+            }
+          } catch {}
+        }
+      }
+    },
+    cancel() {
+      reader.cancel();
+    },
+  });
+  
+  return stream;
 }
 
 async function callGroq(systemPrompt: string, message: string): Promise<string> {

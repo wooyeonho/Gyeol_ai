@@ -136,6 +136,7 @@ CREATE TABLE coin_transactions (
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   amount INTEGER NOT NULL,
   reason TEXT NOT NULL,
+  type TEXT DEFAULT 'reward',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
