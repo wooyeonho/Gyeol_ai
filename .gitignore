@@ -1,8 +1,14 @@
 node_modules/
 .next/
 .env*.local
+.env
 .vercel
 dist/
 build/
 *.log
 .DS_Store
+.supabase/
+tmp/
+.idea/
+.vscode/
+*.tsbuildinfo

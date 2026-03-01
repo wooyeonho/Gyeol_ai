@@ -1,0 +1,22 @@
+[project]
+name = "gyeol"
+slug = "gyeol"
+
+[api]
+enabled = true
+schemas = ["public", "extensions"]
+extra_search_path = ["public"]
+import_schema_extension = true
+
+[db]
+port = 5432
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+

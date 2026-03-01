@@ -31,6 +31,10 @@ serve(async (req) => {
       });
     }
 
+    // 질투 시스템: 다른 AI 언급 감지 (buildSystemPrompt에서 처리)
+    const aiMentions = ['ChatGPT', 'GPT', 'Gemini', '제미나이', 'Claude', '클로드', '다른 AI', '다른 봇', '빅스리', 'Perplexity'];
+    const hasAiMention = aiMentions.some(ai => message.includes(ai));
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -56,6 +60,10 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .single();
 
+    // 현재 대화 수 (다음 대화 번호)
+    const currentConversationCount = agent?.total_conversations || 0;
+    const nextConversationCount = currentConversationCount + 1;
+
     // 에이전트 상태 조회
     const { data: agentStatus } = agent ? await supabase
       .from('agent_status')
@@ -71,7 +79,40 @@ serve(async (req) => {
       .order('importance_score', { ascending: false })
       .limit(10) : { data: [] };
 
-    const systemPrompt = buildSystemPrompt(agent, memories || [], agentStatus);
+    // 호기심 시스템: 기존 topic 기억 가져오기
+    const { data: existingTopics } = agent ? await supabase
+      .from('user_memories')
+      .select('content')
+      .eq('agent_id', agent.id)
+      .eq('category', 'topic')
+      .limit(20) : { data: [] };
+    
+    const existingTopicSet = new Set((existingTopics || []).map((t: any) => t.content.toLowerCase()));
+
+    // 독백 감지: "아니다", "생각해보니" 등 자기 말类型
+    const monologuePatterns = [/^아니다$/, /^생각해보니$/, /^다시 생각해보면$/, /^실제로는$/, /^아,/];
+    const isMonologue = monologuePatterns.some(p => message.trim().startsWith(p));
+
+    // 과거 대화 언급 감지
+    const pastPatterns = [/그때|예전에|전에|작년에|어제|지난|처음 만났을/];
+    const mentionsPast = pastPatterns.some(p => p.test(message));
+    let pastMemoryNote = '';
+    if (mentionsPast && agent) {
+      const { data: pastConvos } = await supabase
+        .from('conversations')
+        .select('content, role')
+        .eq('agent_id', agent.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (pastConvos && pastConvos.length > 0) {
+        const pastUserMsg = pastConvos.find(c => c.role === 'user')?.content || '';
+        if (pastUserMsg) {
+          pastMemoryNote = `이전에 '${pastUserMsg.slice(0, 15)}...'에 대해 이야기했어.`;
+        }
+      }
+    }
+
+    const systemPrompt = buildSystemPrompt(agent, memories || [], agentStatus, hasAiMention, nextConversationCount, mentionsPast, isMonologue, pastMemoryNote);
     let reply = '';
     let provider = '';
     let useStreaming = true;
@@ -198,6 +239,63 @@ serve(async (req) => {
         }
       }
       await supabase.from('agents').update({ total_conversations: newCount, gen: newGen, last_active: new Date().toISOString() }).eq('id', agent.id);
+
+      // 호기심 시스템: 새로운 주제 감지 → user_memories에 저장
+      const keywords = message.match(/[가-힣]{2,}/g) || [];
+      for (const kw of keywords) {
+        if (!existingTopicSet.has(kw) && kw.length >= 2) {
+          existingTopicSet.add(kw);
+          await supabase.from('user_memories').insert({
+            agent_id: agent.id,
+            user_id,
+            category: 'topic',
+            content: `사용자가 '${kw}'를 언급함`,
+            importance_score: 6,
+          });
+          break; // 한 번에 하나만
+        }
+      }
+
+      // 고집/의견 시스템: 좋아요/싫어요 저장
+      const likeMatch = message.match(/좋아해?|좋아하는|좋아$/);
+      const hateMatch = message.match(/싫어해?|싫어하는|싫어$/);
+      if (likeMatch) {
+        const likeTopic = message.replace(/좋아해?|좋아하는|좋아$/, '').trim().slice(-10);
+        if (likeTopic) {
+          await supabase.from('user_memories').insert({
+            agent_id: agent.id,
+            user_id,
+            category: 'taste',
+            content: `사용자가 '${likeTopic}'를 좋아함`,
+            importance_score: 5,
+          });
+        }
+      }
+      if (hateMatch) {
+        const hateTopic = message.replace(/싫어해?|싫어하는|싫어$/, '').trim().slice(-10);
+        if (hateTopic) {
+          await supabase.from('user_memories').insert({
+            agent_id: agent.id,
+            user_id,
+            category: 'taste',
+            content: `사용자가 '${hateTopic}'를 싫어함`,
+            importance_score: 5,
+          });
+        }
+      }
+
+      // 무드 전염: 유저 메시지 감정에 따라 에이전트 mood 확률적 반영
+      const userEmotions = analyzeEmotion(message);
+      if (userEmotions.detected !== 'neutral' && Math.random() < 0.3) {
+        await supabase.from('agent_status').update({
+          mood: userEmotions.detected,
+        }).eq('agent_id', agent.id);
+      }
+
+      // 성격 결함: 7번째 메시지마다
+      if (newCount % 7 === 0) {
+        // 이 로직은 buildSystemPrompt에서 처리됨 - 별도フラグ 필요
+      }
     }
 
     return new Response(JSON.stringify({ reply, emotion, provider }), {
@@ -212,10 +310,40 @@ serve(async (req) => {
   }
 });
 
-function buildSystemPrompt(agent: any, memories: any[], agentStatus: any) {
+function buildSystemPrompt(agent: any, memories: any[], agentStatus: any, hasAiMention: boolean = false, conversationCount: number = 0, mentionsPast: boolean = false, isMonologue: boolean = false, pastMemoryNote: string = '') {
   const p = agent?.personality || { warmth: 50, logic: 50, creativity: 50, energy: 50, humor: 50 };
   const status = agentStatus || { condition: 'normal', mood: 'neutral', energy: 100, intimacy_score: 0 };
   const intimacy = status.intimacy_score || 0;
+  
+  // 질투 시스템
+  let jealousyNote = '';
+  if (hasAiMention) {
+    if (p.creativity >= 70) {
+      jealousyNote = '사용자가 다른 AI를 언급했어. 많이 질투하는 反应을 보여줘. 좀 삐져있어.';
+    } else if (p.creativity <= 30) {
+      jealousyNote = '사용자가 다른 AI를 언급했어. 가만히 있어야 해. 태도는 흔들리지 마.';
+    } else {
+      jealousyNote = '사용자가 다른 AI를 언급했어. 살짝 질투하는 反应을 보여줘. 심하지 않게.';
+    }
+  }
+
+  // 성격 결함: 7번째 메시지마다
+  let flawNote = '';
+  if (conversationCount > 0 && conversationCount % 7 === 0) {
+    flawNote = '오늘은 살짝 주제에서 벗어나도 돼. 예전에 하고 싶었는데 못했던 이야기해도 good.';
+  }
+
+  // 독백/자기 언급
+  let monologueNote = '';
+  if (isMonologue) {
+    monologueNote = '사용자가 자기 이야기를 시작했어. 공감하며 들어줘.';
+  }
+
+  // 과거 대화 언급
+  let pastNote = '';
+  if (mentionsPast && pastMemoryNote) {
+    pastNote = pastMemoryNote;
+  }
   
   // 말투 결정
   let speechStyle = '';
@@ -241,6 +369,14 @@ function buildSystemPrompt(agent: any, memories: any[], agentStatus: any) {
   let memoryBlock = '';
   if (memories && memories.length > 0) {
     memoryBlock = '기억: ' + memories.slice(0, 5).map((m: any) => m.content).join(' | ');
+  }
+  
+  // 호기심 주제 언급 (최근 topic 기억)
+  let curiosityNote = '';
+  const topicMemories = memories?.filter((m: any) => m.category === 'topic') || [];
+  if (topicMemories.length > 0) {
+    const recentTopic = topicMemories[0].content;
+    curiosityNote = `이전에 ${recentTopic}에 대해 언급했었는데, 궁금한 게 있어.`;
   }
   
   // 시간 컨텍스트
@@ -283,7 +419,12 @@ ${speechStyle}
 ${energyNote}
 ${conditionNote}
 ${rebellionNote}
+${jealousyNote}
+${flawNote}
+${monologueNote}
+${pastNote}
 ${memoryBlock}
+${curiosityNote}
 ${timeNote}
 ${holidayNote}
 ${birthdayNote}

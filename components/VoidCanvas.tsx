@@ -19,15 +19,16 @@ interface VoidCanvasProps {
   mood?: string;
 }
 
-function ParticleSystem({ visualState, isThinking, isListening, mood }: { 
+function ParticleSystem({ visualState, isThinking, isListening, mood, genScale = 1 }: { 
   visualState: VisualState; 
   isThinking?: boolean;
   isListening?: boolean;
   mood?: string;
+  genScale?: number;
 }) {
   const pointsRef = useRef<THREE.Points>(null);
   
-  const particleCount = visualState?.particle_count || 10;
+  const particleCount = (visualState?.particle_count || 10) * genScale;
   const glowIntensity = visualState?.glow_intensity || 0.3;
   
   // mood별 색상
@@ -122,7 +123,7 @@ function ParticleSystem({ visualState, isThinking, isListening, mood }: {
   );
 }
 
-function GlowSphere({ visualState, mood }: { visualState: VisualState; mood?: string }) {
+function GlowSphere({ visualState, mood, genScale = 1 }: { visualState: VisualState; mood?: string; genScale?: number }) {
   const meshRef = useRef<THREE.Mesh>(null);
   
   const MOOD_COLORS: Record<string, string> = {
@@ -136,16 +137,17 @@ function GlowSphere({ visualState, mood }: { visualState: VisualState; mood?: st
   const moodColor = MOOD_COLORS[mood || 'neutral'] || '#FFFFFF';
   const color = visualState?.color_primary || moodColor;
   const glow = visualState?.glow_intensity || 0.3;
+  const baseSize = 0.02 * genScale;
   
   useFrame((state) => {
     if (!meshRef.current) return;
     const time = state.clock.getElapsedTime();
-    meshRef.current.scale.setScalar(1 + Math.sin(time * 2) * 0.05);
+    meshRef.current.scale.setScalar(genScale + Math.sin(time * 2) * 0.05 * genScale);
   });
   
   return (
     <mesh ref={meshRef}>
-      <sphereGeometry args={[0.02, 32, 32]} />
+      <sphereGeometry args={[baseSize, 32, 32]} />
       <meshBasicMaterial 
         color={color} 
         transparent 
@@ -164,13 +166,17 @@ export default function VoidCanvas({ agent, isThinking = false, isListening = fa
     form: 'point',
   };
   
+  // 진화 단계별 크기
+  const gen = agent?.gen || 1;
+  const genScale = gen === 1 ? 1.0 : gen === 2 ? 1.2 : gen === 3 ? 1.5 : gen === 4 ? 1.8 : 2.2;
+  
   return (
     <div className="fixed inset-0 -z-10">
       <Canvas camera={{ position: [0, 0, 2], fov: 75 }}>
         <color attach="background" args={['#000000']} />
         
         {/* 글로우 구 */}
-        <GlowSphere visualState={visualState} mood={mood} />
+        <GlowSphere visualState={visualState} mood={mood} genScale={genScale} />
         
         {/* 파티클 시스템 */}
         <ParticleSystem 
@@ -178,6 +184,7 @@ export default function VoidCanvas({ agent, isThinking = false, isListening = fa
           isThinking={isThinking}
           isListening={isListening}
           mood={mood}
+          genScale={genScale}
         />
         
         {/* 조명 */}

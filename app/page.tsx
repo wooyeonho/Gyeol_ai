@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useGyeolStore } from '@/store/gyeol-store';
@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client';
 import ChatInterface from '@/components/ChatInterface';
 import { BirthSequence } from '@/components/BirthSequence';
 import { EnergyBar, IntimacyDisplay } from '@/components/EnergyBar';
+import { EvolutionCeremony } from '@/components/EvolutionCeremony';
 
 const VoidCanvas = dynamic(() => import('@/components/VoidCanvas'), { ssr: false });
 
@@ -20,6 +21,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [showBirth, setShowBirth] = useState(false);
   const [ready, setReady] = useState(false);
+  const [showEvolution, setShowEvolution] = useState(false);
+  const prevGenRef = useRef(1);
   const router = useRouter();
   
   const { 
@@ -86,6 +89,12 @@ export default function Home() {
       }
       
       setAgent(agt);
+      
+      // 진화 체크: gen이 증가했는지 확인
+      if (agt.gen > prevGenRef.current) {
+        setShowEvolution(true);
+      }
+      prevGenRef.current = agt.gen;
       
       const { data: msgs } = await supabase
         .from('conversations')
@@ -197,6 +206,15 @@ export default function Home() {
   return (
     <main className="relative w-full h-screen overflow-hidden bg-black">
       <VoidCanvas agent={agent} isThinking={false} mood={agentStatus?.mood || 'neutral'} />
+      
+      {/* 진화 세레모니 */}
+      {showEvolution && (
+        <EvolutionCeremony 
+          isVisible={showEvolution}
+          newGen={agent.gen} 
+          onComplete={() => setShowEvolution(false)} 
+        />
+      )}
       
       <div className="absolute top-4 right-4 text-[10px] text-white/40 flex flex-col items-end gap-1">
         <div>Gen {agent.gen} · {agent.total_conversations} 대화 · {agent.name}</div>

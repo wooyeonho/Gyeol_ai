@@ -17,6 +17,7 @@ type BirthStage =
   | 'first_message'
   | 'naming'
   | 'first_question'
+  | 'personality_choice'
   | 'reaction'
   | 'promise'
   | 'complete';
@@ -32,6 +33,7 @@ export function BirthSequence({ userId, onComplete }: BirthSequenceProps) {
   const [lightScale, setLightScale] = useState(0.1);
   const [userName, setUserName] = useState('');
   const [userEmotion, setUserEmotion] = useState<string | null>(null);
+  const [selectedPersonality, setSelectedPersonality] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
   const supabase = createClient();
   const [ready, setReady] = useState(false);
@@ -82,8 +84,7 @@ export function BirthSequence({ userId, onComplete }: BirthSequenceProps) {
   
   const handleEmotionResponse = async (emotion: string) => {
     setUserEmotion(emotion);
-    setStage('complete');
-    await updateAgentForEmotion(emotion);
+    setStage('personality_choice');
   };
   
   async function createAgent(name: string) {
@@ -183,6 +184,75 @@ export function BirthSequence({ userId, onComplete }: BirthSequenceProps) {
     };
     return personalities[emotion] || personalities.neutral;
   }
+
+  // 성격 선택지 보너스
+  const personalityBonuses: Record<string, any> = {
+    warm: { warmth: 20, humor: 10 },       // 다정한 타입
+    smart: { logic: 20, creativity: 10 },   // 똑똑한 타입
+    quirky: { creativity: 20, humor: 15 },  // 엉뚱한 타입
+    cool: { logic: 10, energy: 15 },       // 도도한 타입
+  };
+
+  function handlePersonalityChoice(type: string) {
+    setSelectedPersonality(type);
+    // personality_choice에서 에이전트 생성
+    createAgentFromPersonalityChoice(type);
+  }
+
+  // personality_choice에서 에이전트 생성
+  async function createAgentFromPersonalityChoice(personalityType: string) {
+    if (!supabase) return;
+    try {
+      const emotion = userEmotion || 'neutral';
+      const basePersonality = emotionToPersonality(emotion);
+      const bonus = personalityBonuses[personalityType] || {};
+      
+      // 기본 personality에 선택 보너스 합산
+      const personality = {
+        warmth: Math.min(100, (basePersonality.warmth || 50) + (bonus.warmth || 0)),
+        logic: Math.min(100, (basePersonality.logic || 50) + (bonus.logic || 0)),
+        creativity: Math.min(100, (basePersonality.creativity || 50) + (bonus.creativity || 0)),
+        energy: Math.min(100, (basePersonality.energy || 50) + (bonus.energy || 0)),
+        humor: Math.min(100, (basePersonality.humor || 50) + (bonus.humor || 0)),
+      };
+      
+      const visualState = {
+        ...DEFAULT_VISUAL,
+        color_primary: emotionToColor(emotion),
+      };
+
+      const { data: agent, error } = await supabase
+        .from('agents')
+        .insert({
+          user_id: userId,
+          name: userName || '결',
+          gen: 1,
+          total_conversations: 0,
+          evolution_progress: 0,
+          personality,
+          visual_state: visualState,
+          birth_stage: 'complete',
+          birth_emotion: emotion,
+        })
+        .select()
+        .single();
+
+      if (error || !agent) throw error || new Error('No agent created');
+
+      await supabase
+        .from('agents')
+        .update({ total_conversations: 1 })
+        .eq('id', agent.id);
+
+      setStage('promise');
+      setTimeout(() => {
+        setStage('complete');
+        onComplete(agent);
+      }, 3000);
+    } catch (error) {
+      console.error('Error creating agent:', error);
+    }
+  }
   
   const emotionOptions = [
     { label: '좋아요!', emotion: 'happy' },
@@ -246,6 +316,27 @@ export function BirthSequence({ userId, onComplete }: BirthSequenceProps) {
                   {opt.label}
                 </button>
               ))}
+            </div>
+          </motion.div>
+        )}
+
+        {stage === 'personality_choice' && (
+          <motion.div key="personality_choice" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute flex flex-col items-center gap-4">
+            <div className="text-white/60 text-sm">결의 성격을 선택해주세요</div>
+            <div className="text-white text-lg">어떤 결이 있었으면 좋겠어요?</div>
+            <div className="flex gap-3 flex-wrap justify-center mt-4">
+              <button onClick={() => handlePersonalityChoice('warm')} className="bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 px-4 py-3 rounded-xl text-white text-sm">
+                다정한 타입
+              </button>
+              <button onClick={() => handlePersonalityChoice('smart')} className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 px-4 py-3 rounded-xl text-white text-sm">
+                똑똑한 타입
+              </button>
+              <button onClick={() => handlePersonalityChoice('quirky')} className="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 px-4 py-3 rounded-xl text-white text-sm">
+                엉뚱한 타입
+              </button>
+              <button onClick={() => handlePersonalityChoice('cool')} className="bg-gray-500/20 hover:bg-gray-500/30 border border-gray-500/30 px-4 py-3 rounded-xl text-white text-sm">
+                도도한 타입
+              </button>
             </div>
           </motion.div>
         )}
