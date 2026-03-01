@@ -77,6 +77,13 @@ serve(async (req) => {
     // 질투 시스템: 다른 AI 언급 감지 (buildSystemPrompt에서 처리)
     const aiMentions = ['ChatGPT', 'GPT', 'Gemini', '제미나이', 'Claude', '클로드', '다른 AI', '다른 봇', '빅스리', 'Perplexity'];
     const hasAiMention = aiMentions.some(ai => message.includes(ai));
+    
+    // XSS 방지: 메시지 살균
+    const sanitizedMessage = message
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .slice(0, 2000);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -159,7 +166,7 @@ serve(async (req) => {
       { pattern: /\.\.\.$/, label: '어조: 신중함' },
       { pattern: /\?$/, label: '어조: 호기심' },
     ];
-    const matchedSpeech = speechPatterns.find(s => s.pattern.test(message));
+    const matchedSpeech = speechPatterns.find(s => s.pattern.test(sanitizedMessage));
     if (matchedSpeech && agent) {
       await supabase.from('user_memories').insert({
         agent_id: agent.id,
@@ -186,7 +193,7 @@ serve(async (req) => {
 
     // 과거 대화 언급 감지
     const pastPatterns = [/그때|예전에|전에|작년에|어제|지난|처음 만났을/];
-    const mentionsPast = pastPatterns.some(p => p.test(message));
+    const mentionsPast = pastPatterns.some(p => p.test(sanitizedMessage));
     let pastMemoryNote = '';
     if (mentionsPast && agent) {
       const { data: pastConvos } = await supabase
@@ -206,7 +213,7 @@ serve(async (req) => {
     // 벡터 기억 검색 (match_memories RPC) - Top-K 5개로 제한
     let vectorMemories: string[] = [];
     try {
-      const queryEmbedding = await generateEmbedding(message);
+      const queryEmbedding = await generateEmbedding(sanitizedMessage);
       
       const { data: matched } = await supabase.rpc('match_memories', {
         query_embedding: queryEmbedding,
@@ -243,7 +250,7 @@ serve(async (req) => {
     
     try {
       // 스트리밍 시도
-      const stream = await callGroqStream(systemPrompt, message);
+      const stream = await callGroqStream(systemPrompt, sanitizedMessage);
       
       // 스트리밍 응답 반환 +后台 저장
       // 스트리밍 응답을 먼저 클라이언트에 보내고, 완료 후 DB에 저장
@@ -323,17 +330,17 @@ serve(async (req) => {
     // 폴백: non-streaming
     if (!useStreaming) {
       try {
-        reply = await callGroq(systemPrompt, message);
+        reply = await callGroq(systemPrompt, sanitizedMessage);
         provider = 'groq';
       } catch (e2) {
         console.error('Groq failed:', e2);
         try {
-          reply = await callDeepSeek(systemPrompt, message);
+          reply = await callDeepSeek(systemPrompt, sanitizedMessage);
           provider = 'deepseek';
         } catch (e3) {
           console.error('DeepSeek failed:', e3);
           try {
-            reply = await callGemini(systemPrompt, message);
+            reply = await callGemini(systemPrompt, sanitizedMessage);
             provider = 'gemini';
           } catch (e4) {
             reply = '...';
@@ -349,7 +356,7 @@ serve(async (req) => {
       agent_id: agent?.id,
       user_id,
       role: 'user',
-      content: message,
+      content: sanitizedMessage,
     });
 
     await supabase.from('conversations').insert({

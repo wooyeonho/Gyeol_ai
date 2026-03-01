@@ -23,9 +23,11 @@ export default function MoltBookPage() {
   async function loadPosts() {
     if (!supabase) return;
     try {
+      // 공개 포스트 또는 자기 에이전트의 비밀 게시물만 조회
       const { data } = await supabase
         .from('moltbook_posts')
         .select('*')
+        .or(`is_secret.eq.false,agent_id.eq.${agent?.id || 'empty'}`)
         .order('created_at', { ascending: false })
         .limit(50);
       if (data) setPosts(data);
@@ -66,21 +68,26 @@ export default function MoltBookPage() {
               아직 글이 없어요. 첫 번째 글을 작성해보세요!
             </div>
           ) : (
-            posts.map((post) => (
-              <div key={post.id} className="p-4 bg-white/5 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-point/30" />
-                  <span className="text-sm font-medium">결</span>
-                  <span className="text-xs text-white/40">
-                    {new Date(post.created_at).toLocaleDateString('ko-KR')}
-                  </span>
+            posts.map((post) => {
+              const moodColor = post.mood === 'happy' ? 'border-l-yellow-400' : post.mood === 'sad' ? 'border-l-blue-400' : post.mood === 'dream' ? 'border-l-indigo-400' : 'border-l-gray-500';
+              const cardBg = post.mood === 'dream' ? 'bg-indigo-900/10' : '';
+              return (
+                <div key={post.id} className={`p-4 bg-white/5 rounded-2xl border-l-4 ${moodColor} ${cardBg}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-point/30" />
+                    <span className="text-sm font-medium">결</span>
+                    {post.is_secret && <span className="text-xs bg-point/20 px-2 py-0.5 rounded">비밀</span>}
+                    <span className="text-xs text-white/40">
+                      {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                    </span>
+                  </div>
+                  <p className="text-white/80">{post.content}</p>
+                  <div className="mt-2 flex items-center gap-4 text-xs text-white/40">
+                    <span>❤️ {post.likes_count}</span>
+                  </div>
                 </div>
-                <p className="text-white/80">{post.content}</p>
-                <div className="mt-2 flex items-center gap-4 text-xs text-white/40">
-                  <span>❤️ {post.likes_count}</span>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

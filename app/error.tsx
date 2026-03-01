@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 export default function Error({
   error,
@@ -13,6 +14,13 @@ export default function Error({
     console.error('Application error:', error);
   }, [error]);
 
+  async function handleReset() {
+    // 세션 복구 시도
+    const supabase = createClient();
+    await supabase?.auth.getSession();
+    reset();
+  }
+
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="text-center max-w-md">
@@ -21,7 +29,7 @@ export default function Error({
           예상치 못한 오류가 발생했습니다. 다시 시도해주세요.
         </p>
         <button
-          onClick={reset}
+          onClick={handleReset}
           className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
         >
           다시 시도

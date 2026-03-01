@@ -5,8 +5,9 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGyeolStore } from '@/store/gyeol-store';
+import { createClient } from '@/lib/supabase/client';
 
 const SKINS = [
   { id: 'star', name: '별', price: 0, color: '#F59E0B', desc: '밤하늘의 별' },
@@ -19,15 +20,57 @@ const SKINS = [
 
 export default function SkinMarketPage() {
   const { agent } = useGyeolStore();
+  const supabase = createClient();
   const [buying, setBuying] = useState<string | null>(null);
+  const [coins, setCoins] = useState(0);
+  
+  // 프로필에서 코인 조회
+  useEffect(() => {
+    if (!supabase || !agent) return;
+    supabase.from('profiles').select('coins').eq('id', agent.user_id).single()
+      .then(({ data }) => { if (data) setCoins(data.coins || 0); });
+  }, [supabase, agent]);
   
   async function buySkin(skinId: string) {
+    if (!supabase || !agent) return;
+    const skin = SKINS.find(s => s.id === skinId);
+    if (!skin || skin.price > coins) {
+      alert('코인이 부족합니다!');
+      return;
+    }
+    
     setBuying(skinId);
-    // TODO: 실제 구매 로직
-    setTimeout(() => {
-      alert('스킨을 구매했습니다!');
-      setBuying(null);
-    }, 1000);
+    
+    try {
+      // 1. 코인 차감
+      const { error: coinError } = await supabase.rpc('deduct_coins', { 
+        p_user_id: agent.user_id, 
+        p_amount: skin.price 
+      });
+      
+      if (coinError) {
+        alert(coinError.message || '구매 실패');
+        setBuying(null);
+        return;
+      }
+      
+      // 2. 에이전트 visual_state 업데이트
+      await supabase.from('agents').update({
+        visual_state: {
+          ...agent.visual_state,
+          color_primary: skin.color,
+        }
+      }).eq('id', agent.id);
+      
+      // 3. 코인 상태 새로고침
+      const { data: profile } = await supabase.from('profiles').select('coins').eq('id', agent.user_id).single();
+      if (profile) setCoins(profile.coins);
+      
+      alert('스킨이 적용되었습니다!');
+    } catch (err) {
+      alert('구매 중 오류가 발생했습니다.');
+    }
+    setBuying(null);
   }
   
   return (
@@ -39,7 +82,7 @@ export default function SkinMarketPage() {
         {/* 코인 */}
         <div className="mb-6 p-3 bg-white/5 rounded-lg flex justify-between items-center">
           <span className="text-white/60">보유 코인</span>
-          <span className="text-xl font-bold text-point">100</span>
+          <span className="text-xl font-bold text-point">{coins}</span>
         </div>
         
         {/* 스킨 목록 */}

@@ -5,6 +5,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useGyeolStore } from '@/store/gyeol-store';
+import { createClient } from '@/lib/supabase/client';
 
 interface AIGyeol {
   id: string;
@@ -14,20 +16,25 @@ interface AIGyeol {
 }
 
 export default function MatchesPage() {
+  const { agent } = useGyeolStore();
+  const supabase = createClient();
   const [matches, setMatches] = useState<AIGyeol[]>([]);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // TODO: 실제 매칭 API 호출
-    setTimeout(() => {
-      setMatches([
-        { id: '1', name: '바다', gen: 3, personality: { warmth: 70, creativity: 60 } },
-        { id: '2', name: '나무', gen: 2, personality: { warmth: 80, creativity: 40 } },
-        { id: '3', name: '별', gen: 4, personality: { warmth: 60, creativity: 90 } },
-      ]);
-      setLoading(false);
-    }, 500);
-  }, []);
+    if (!supabase || !agent) return;
+    
+    // 다른 유저의 에이전트 조회 (자기 자신 제외)
+    supabase
+      .from('agents')
+      .select('id, name, gen, personality')
+      .neq('user_id', agent.user_id)
+      .limit(10)
+      .then(({ data }) => {
+        if (data) setMatches(data);
+        setLoading(false);
+      });
+  }, [supabase, agent]);
   
   if (loading) {
     return <div className="min-h-screen bg-black text-white flex items-center justify-center">로딩 중...</div>;
