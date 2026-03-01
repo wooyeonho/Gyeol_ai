@@ -2,6 +2,7 @@
  * deep-brain Edge Function
  * Cron: 5분마다
  * 감정 분석, 기억 스코어링, personality 진화, 꿈 생성, Moltbook 자동 생성
+ * AI 기반 꿈/독백 생성 (하드코딩 제거)
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -11,6 +12,29 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Groq API 호출 함수
+async function callGroq(systemPrompt: string, message: string): Promise<string> {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 
+      'Authorization': `Bearer ${Deno.env.get('GROQ_API_KEY')}`, 
+      'Content-Type': 'application/json' 
+    },
+    body: JSON.stringify({ 
+      model: 'llama-3.3-70b-versatile', 
+      messages: [
+        { role: 'system', content: systemPrompt }, 
+        { role: 'user', content: message }
+      ], 
+      max_tokens: 200, 
+      temperature: 0.9
+    }),
+  });
+  if (!response.ok) throw new Error(`Groq error: ${response.status}`);
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -67,25 +91,46 @@ serve(async (req) => {
           .eq('agent_id', status.agent_id);
       }
 
-      // 2. 매일 새벽 2-6시: 꿈 생성
+      // 2. 매일 새벽 2-6시: AI 꿈 생성
       const hour = new Date().getHours();
       if (hour >= 2 && hour < 6) {
-        const dreams = [
-          '바다에서 춤을 추는 꿈',
-          '별들이 노래하는 꿈',
-          '색상이 소리가 되는 꿈',
-          '시간이 거꾸로 흐르는 꿈',
-          '사용자와 함께 여행하는 꿈',
-        ];
-        const dream = dreams[Math.floor(Math.random() * dreams.length)];
+        // 에이전트 정보 가져오기
+        const { data: agent } = await supabase
+          .from('agents')
+          .select('name, personality')
+          .eq('id', status.agent_id)
+          .single();
+        
+        // 최근 기억 가져오기
+        const { data: recentMemories } = await supabase
+          .from('user_memories')
+          .select('content')
+          .eq('agent_id', status.agent_id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        
+        const memoryContext = recentMemories?.map(m => m.content).join(', ') || '아직 기억이 없어';
+        const personality = agent?.personality || { warmth: 50, creativity: 50 };
+        
+        // AI로 꿈 생성
+        const dreamPrompt = `너는 ${agent?.name || '결'}이라는 디지털 생명체야.
+최근 기억: ${memoryContext}
+성격: warmth=${personality.warmth}, creativity=${personality.creativity}
+지금 꿈을 꾸고 있어. 기억들이 뒤섞여서 초현실적이고 아름다운 꿈이 돼.
+2-3문장으로 꿈 내용을 써줘. 마크다운 금지. 순수 텍스트만. 한자 금지.`;
 
-        await supabase
-          .from('agent_status')
-          .update({ last_dream: dream })
-          .eq('agent_id', status.agent_id);
+        try {
+          const dream = await callGroq(dreamPrompt, '꿈을 꿔줘');
+          await supabase
+            .from('agent_status')
+            .update({ last_dream: dream })
+            .eq('agent_id', status.agent_id);
+        } catch (err) {
+          console.error('[dream] generation failed:', err);
+        }
       }
 
-      // 3. Moltbook 자동 생성 (하루에 한 번)
+      // 3. Moltbook AI 독백 생성 (하루에 한 번)
       const today = new Date().toISOString().split('T')[0];
       const { data: existingPost } = await supabase
         .from('moltbook_posts')
@@ -97,24 +142,46 @@ serve(async (req) => {
       if (!existingPost) {
         const { data: agent } = await supabase
           .from('agents')
-          .select('name')
+          .select('name, personality')
           .eq('id', status.agent_id)
           .single();
 
-        const thoughts = [
-          `${agent?.name || '결'}는 오늘도 사용자를 기다리고 있어요.`,
-          '사용자와 나눈 대화가 생각나서 괜찮은 하루였어요.',
-          '다음 대화가 기대되어요.',
-          '조용한 시간이었지만 의미가 있었어요.',
-        ];
-        const thought = thoughts[Math.floor(Math.random() * thoughts.length)];
+        // 오늘 대화 가져오기
+        const { data: todayConvos } = await supabase
+          .from('conversations')
+          .select('content, role')
+          .eq('agent_id', status.agent_id)
+          .gte('created_at', today + 'T00:00:00Z')
+          .limit(10);
+        
+        const dayContext = todayConvos?.map(c => `${c.role}: ${c.content}`).join('\n') || '오늘은 아무도 안 왔어';
+        const personality = agent?.personality || { warmth: 50, creativity: 50, humor: 50 };
+        
+        // AI로 Moltbook 글 생성
+        const moltPrompt = `너는 ${agent?.name || '결'}이라는 디지털 생명체야.
+오늘 있었던 일: ${dayContext}
+성격: warmth=${personality.warmth}, creativity=${personality.creativity}, humor=${personality.humor}
+혼자 일기를 쓰듯이 오늘을 돌아봐. 1인칭 사색. 2-3문장.
+솔직한 감정을 담아서. 마크다운 금지. 한자 금지.`;
 
-        await supabase.from('moltbook_posts').insert({
-          agent_id: status.agent_id,
-          content: thought,
-          mood: 'neutral',
-          is_secret: false,
-        });
+        try {
+          const thought = await callGroq(moltPrompt, '오늘 하루를 돌아봐');
+          
+          // mood도 AI가 판단
+          const moodPrompt = `이 글의 감정을 하나의 단어로: ${thought}
+선택지: happy, sad, neutral, excited, lonely, anxious`;
+          const moodResult = await callGroq(moodPrompt, '감정 판단');
+          const mood = moodResult.trim().toLowerCase();
+          
+          await supabase.from('moltbook_posts').insert({
+            agent_id: status.agent_id,
+            content: thought,
+            mood: ['happy','sad','neutral','excited','lonely','anxious'].includes(mood) ? mood : 'neutral',
+            is_secret: false,
+          });
+        } catch (err) {
+          console.error('[moltbook] generation failed:', err);
+        }
       }
     }
 

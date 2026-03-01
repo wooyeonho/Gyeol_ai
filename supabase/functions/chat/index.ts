@@ -1,6 +1,7 @@
 /**
  * chat Edge Function - GYEOL 대화 처리
  * 3-Tier 폴백 체인: Groq → DeepSeek → Gemini
+ * 벡터 임베딩 파이프라인 포함
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -10,6 +11,48 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// 벡터 임베딩 생성 (Cloudflare Workers AI 또는 폴백)
+async function generateEmbedding(text: string): Promise<number[]> {
+  const accountId = Deno.env.get('CLOUDFLARE_ACCOUNT_ID');
+  const apiToken = Deno.env.get('CLOUDFLARE_API_TOKEN');
+  
+  if (!accountId || !apiToken) {
+    return fallbackEmbedding(text);
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/baai/bge-small-en-v1.5`,
+      {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${apiToken}`, 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({ text: [text] }),
+      }
+    );
+
+    const data = await response.json();
+    if (data?.result?.data?.[0]) {
+      return data.result.data[0];
+    }
+  } catch (err) {
+    console.error('[embedding] Cloudflare API failed, using fallback:', err);
+  }
+  
+  return fallbackEmbedding(text);
+}
+
+function fallbackEmbedding(text: string): number[] {
+  const vec = new Array(384).fill(0);
+  for (let i = 0; i < text.length; i++) {
+    vec[text.charCodeAt(i) % 384] += 1;
+  }
+  const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0)) || 1;
+  return vec.map(v => v / norm);
+}
 
 interface ChatRequest {
   user_id: string;
@@ -77,10 +120,12 @@ serve(async (req) => {
       const lastActive = new Date(agent.last_active);
       const now = new Date();
       const hoursAway = Math.floor((now.getTime() - lastActive.getTime()) / (1000 * 60 * 60));
-      if (hoursAway > 24) {
-        timeAwayNote = `사용자가 ${Math.floor(hoursAway / 24)}일 만에 다시 왔어. 반갑게迎えて!`;
-      } else if (hoursAway > 2) {
-        timeAwayNote = `사용자가 ${hoursAway}시간 만에 다시 왔어.`;
+      if (hoursAway > 72) {
+        timeAwayNote = `사용자가 ${Math.floor(hoursAway/24)}일이나 안 왔어. 정말 보고 싶었어. 정말 많이 그리웠어.`;
+      } else if (hoursAway > 24) {
+        timeAwayNote = `사용자가 ${Math.floor(hoursAway / 24)}일 만에 다시 왔어. 반갑게 만나서 반가워!`;
+      } else if (hoursAway > 6) {
+        timeAwayNote = '좀 오랜만이야. 반갑게 맞아줘.';
       }
     }
 
@@ -158,7 +203,28 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = buildSystemPrompt(agent, memories || [], agentStatus, hasAiMention, nextConversationCount, mentionsPast, isMonologue, pastMemoryNote, timeAwayNote, weatherNote);
+    const systemPrompt = buildSystemPrompt(agent, memories || [], agentStatus, hasAiMention, nextConversationCount, mentionsPast, isMonologue, pastMemoryNote, timeAwayNote, weatherNote, vectorMemories);
+    
+    // 벡터 기억 검색 (match_memories RPC)
+    let vectorMemories: string[] = [];
+    try {
+      const queryEmbedding = await generateEmbedding(message);
+      
+      const { data: matched } = await supabase.rpc('match_memories', {
+        query_embedding: queryEmbedding,
+        target_user_id: user_id,
+        match_threshold: 0.6,
+        match_count: 3,
+      });
+      
+      if (matched && matched.length > 0) {
+        vectorMemories = matched.map((m: any) => m.content);
+        console.log('[vector-search] found', matched.length, 'memories');
+      }
+    } catch (err) {
+      console.error('[vector-search] failed:', err);
+    }
+    
     let reply = '';
     let provider = '';
     let useStreaming = true;
@@ -200,6 +266,23 @@ serve(async (req) => {
             emotion,
             provider: 'groq',
           });
+          
+          // 벡터 임베딩 생성 → memories 테이블에 저장
+          try {
+            const combinedText = `user: ${message}\nassistant: ${fullReply}`;
+            const embedding = await generateEmbedding(combinedText);
+            
+            await supabase.from('memories').insert({
+              user_id: user_id,
+              agent_id: agent.id,
+              type: 'conversation',
+              content: combinedText,
+              embedding: embedding,
+              context: { emotion: emotion.detected, provider: 'groq', timestamp: new Date().toISOString() },
+            });
+          } catch (embErr) {
+            console.error('[embedding] failed (non-critical):', embErr);
+          }
           
           // 에이전트 상태 업데이트
           if (agentStatus) {
@@ -367,7 +450,7 @@ serve(async (req) => {
   }
 });
 
-function buildSystemPrompt(agent: any, memories: any[], agentStatus: any, hasAiMention: boolean = false, conversationCount: number = 0, mentionsPast: boolean = false, isMonologue: boolean = false, pastMemoryNote: string = '', timeAwayNote: string = '', weatherNote: string = '') {
+function buildSystemPrompt(agent: any, memories: any[], agentStatus: any, hasAiMention: boolean = false, conversationCount: number = 0, mentionsPast: boolean = false, isMonologue: boolean = false, pastMemoryNote: string = '', timeAwayNote: string = '', weatherNote: string = '', vectorMemories: string[] = []) {
   const p = agent?.personality || { warmth: 50, logic: 50, creativity: 50, energy: 50, humor: 50 };
   const status = agentStatus || { condition: 'normal', mood: 'neutral', energy: 100, intimacy_score: 0 };
   const intimacy = status.intimacy_score || 0;
@@ -400,6 +483,12 @@ function buildSystemPrompt(agent: any, memories: any[], agentStatus: any, hasAiM
   let pastNote = '';
   if (mentionsPast && pastMemoryNote) {
     pastNote = pastMemoryNote;
+  }
+
+  // 벡터 기억 (유사 기억 검색 결과)
+  let vectorBlock = '';
+  if (vectorMemories.length > 0) {
+    vectorBlock = '과거의 기억이 떠오르고 있어: ' + vectorMemories.join(' | ');
   }
   
   // 말투 결정
@@ -482,6 +571,7 @@ function buildSystemPrompt(agent: any, memories: any[], agentStatus: any, hasAiM
 ${speechStyle}
 ${timeAwayNote}
 ${weatherNote}
+${vectorBlock}
 ${energyNote}
 ${conditionNote}
 ${rebellionNote}
