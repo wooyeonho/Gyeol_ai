@@ -66,6 +66,10 @@ serve(async (req) => {
       .select('id, user_id, name, personality, gen')
       .limit(50);
 
+    // Threshold:Reflection 실행 조건
+    const REFLECTION_TURN_THRESHOLD = 10; // 10턴마다
+    const MIN_CONVOS_FOR_REFLECTION = 5; // 최소 5개 대화
+
     for (const agent of agents || []) {
       // 1. 오늘 대화 전체 가져오기
       const { data: todayConvos } = await supabase
@@ -75,9 +79,46 @@ serve(async (req) => {
         .gte('created_at', todayStart)
         .order('created_at', { ascending: true });
 
-      if (!todayConvos || todayConvos.length === 0) {
-        continue; // 대화가 없으면 스킵
+      // Threshold 체크: 최소 대화 수 미달 시 스킵
+      if (!todayConvos || todayConvos.length < MIN_CONVOS_FOR_REFLECTION) {
+        console.log(`[reflection] ${agent.name}: 대화 수 부족 (${todayConvos?.length || 0}), 스킵`);
+        continue;
       }
+
+      // Threshold:대화 턴 수 체크 (10턴마다만 실행)
+      const turnCount = todayConvos.length;
+      if (turnCount < REFLECTION_TURN_THRESHOLD) {
+        console.log(`[reflection] ${agent.name}: 턴 수 부족 (${turnCount}/${REFLECTION_TURN_THRESHOLD}), 스킵`);
+        continue;
+      }
+
+      // Threshold:최근 personality 변화 체크 ( Evolove와 연동 )
+      const { data: recentLogs } = await supabase
+        .from('autonomous_logs')
+        .select('result')
+        .eq('agent_id', agent.id)
+        .like('action', '%evolve%')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let shouldReflect = true;
+      if (recentLogs?.result?.delta) {
+        // Personality delta의 절대값 합계 계산
+        const delta = recentLogs.result.delta;
+        const totalChange = Math.abs(delta.warmth_delta || 0) + 
+                           Math.abs(delta.logic_delta || 0) + 
+                           Math.abs(delta.creativity_delta || 0) + 
+                           Math.abs(delta.energy_delta || 0) + 
+                           Math.abs(delta.humor_delta || 0);
+        // 총 변화가 10 이상时才触发 Reflection
+        if (totalChange < 10) {
+          shouldReflect = false;
+          console.log(`[reflection] ${agent.name}: personality 변화 미미 (${totalChange}), 스킵`);
+        }
+      }
+
+      if (!shouldReflect) continue;
 
       // 2. AI에게 하루 성찰 요청
       const conversationText = todayConvos.map(c => `${c.role}: ${c.content}`).join('\n');

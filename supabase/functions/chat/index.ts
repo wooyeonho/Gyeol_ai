@@ -203,9 +203,7 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = buildSystemPrompt(agent, memories || [], agentStatus, hasAiMention, nextConversationCount, mentionsPast, isMonologue, pastMemoryNote, timeAwayNote, weatherNote, vectorMemories);
-    
-    // 벡터 기억 검색 (match_memories RPC)
+    // 벡터 기억 검색 (match_memories RPC) - Top-K 5개로 제한
     let vectorMemories: string[] = [];
     try {
       const queryEmbedding = await generateEmbedding(message);
@@ -213,17 +211,31 @@ serve(async (req) => {
       const { data: matched } = await supabase.rpc('match_memories', {
         query_embedding: queryEmbedding,
         target_user_id: user_id,
-        match_threshold: 0.6,
-        match_count: 3,
+        match_threshold: 0.5,
+        match_count: 5,
       });
       
+      // 재정렬 (유사도 + 최신성 복합 고려)
       if (matched && matched.length > 0) {
-        vectorMemories = matched.map((m: any) => m.content);
-        console.log('[vector-search] found', matched.length, 'memories');
+        const now = new Date().getTime();
+        const scored = matched.map((m: any) => {
+          const memTime = new Date(m.created_at).getTime();
+          const hoursOld = (now - memTime) / (1000 * 60 * 60);
+          // 최신성 점수: 24시간 이내 1.5, 7일 이내 1.2, 그 외 1.0
+          const recencyScore = hoursOld < 24 ? 1.5 : hoursOld < 168 ? 1.2 : 1.0;
+          const finalScore = (m.similarity || 0) * recencyScore;
+          return { ...m, finalScore };
+        });
+        // 최종 점수로 재정렬 후 상위 3개만 선택
+        scored.sort((a, b) => b.finalScore - a.finalScore);
+        vectorMemories = scored.slice(0, 3).map((m: any) => m.content);
+        console.log('[vector-search] found', matched.length, 'memories, using top 3');
       }
     } catch (err) {
       console.error('[vector-search] failed:', err);
     }
+    
+    const systemPrompt = buildSystemPrompt(agent, memories || [], agentStatus, hasAiMention, nextConversationCount, mentionsPast, isMonologue, pastMemoryNote, timeAwayNote, weatherNote, vectorMemories);
     
     let reply = '';
     let provider = '';

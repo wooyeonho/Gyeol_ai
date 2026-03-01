@@ -201,24 +201,41 @@ CREATE POLICY "push_own" ON push_subscriptions FOR ALL USING (auth.uid() = user_
 -- coin_transactions
 CREATE POLICY "coin_own" ON coin_transactions FOR ALL USING (auth.uid() = user_id);
 
--- 벡터 검색 함수
+-- 벡터 검색 함수 (시간 감쇠 알고리즘 적용)
 CREATE OR REPLACE FUNCTION match_memories(
   query_embedding VECTOR(384),
   target_user_id UUID,
   match_threshold FLOAT DEFAULT 0.6,
   match_count INT DEFAULT 5
 )
-RETURNS TABLE (id UUID, content TEXT, type TEXT, similarity FLOAT, created_at TIMESTAMPTZ)
+RETURNS TABLE (id UUID, content TEXT, type TEXT, similarity FLOAT, created_at TIMESTAMPTZ, recency_score FLOAT)
 LANGUAGE plpgsql AS $$
+DECLARE
+  one_month_ago TIMESTAMPTZ := NOW() - INTERVAL '30 days';
+  one_week_ago TIMESTAMPTZ := NOW() - INTERVAL '7 days';
+  one_day_ago TIMESTAMPTZ := NOW() - INTERVAL '1 day';
 BEGIN
   RETURN QUERY
-  SELECT m.id, m.content, m.type,
-    (1 - (m.embedding <=> query_embedding))::FLOAT AS similarity,
-    m.created_at
+  SELECT 
+    m.id, 
+    m.content, 
+    m.type,
+    -- 기본 코사인 유사도
+    ((1 - (m.embedding <=> query_embedding))::FLOAT * 
+    -- 시간 감쇠 계수: 최신 기억ほど 높게
+    CASE 
+      WHEN m.created_at >= one_day_ago THEN 1.5
+      WHEN m.created_at >= one_week_ago THEN 1.2
+      WHEN m.created_at >= one_month_ago THEN 1.0
+      ELSE 0.8
+    END)::FLOAT AS similarity,
+    m.created_at,
+    -- 재참조 빈도 기반 점수 (현재는 1.0, 추후 참조 테이블 필요)
+    1.0::FLOAT AS recency_score
   FROM memories m
   WHERE m.user_id = target_user_id
     AND (1 - (m.embedding <=> query_embedding)) > match_threshold
-  ORDER BY m.embedding <=> query_embedding
+  ORDER BY similarity DESC
   LIMIT match_count;
 END; $$;
 
