@@ -361,6 +361,44 @@ serve(async (req) => {
       provider,
     });
 
+    // OpenClaw Autonomous Task Trigger (Fire-and-Forget)
+    const openclawUrl = Deno.env.get('OPENCLAW_GATEWAY_URL');
+    if (openclawUrl && agent) {
+      // 10턴마다 학습 태스크 트리거
+      const shouldLearn = nextConversationCount % 10 === 0;
+      // 20% 확률로 호기심 활동
+      const shouldCuriosity = Math.random() < 0.2;
+      
+      if (shouldLearn || shouldCuriosity) {
+        const task = shouldLearn ? 'learner' : 'curiosity';
+        // Fire-and-Forget: 응답 지연 없이后台에서 실행
+        fetch(`${openclawUrl}/task`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(Deno.env.get('OPENCLAW_GATEWAY_TOKEN') ? { 'Authorization': `Bearer ${Deno.env.get('OPENCLAW_GATEWAY_TOKEN')}` } : {}),
+          },
+          body: JSON.stringify({
+            agentId: agent.id,
+            agentName: agent.name,
+            task,
+            context: {
+              personality: agent.personality,
+              turnCount: nextConversationCount,
+            },
+          }),
+        }).catch((err) => console.error('[OpenClaw] Task trigger failed:', err));
+        
+        // autonomous_logs에 기록
+        await supabase.from('autonomous_logs').insert({
+          agent_id: agent.id,
+          source: 'openclaw_bridge',
+          action: task,
+          result: { triggered_by: 'chat', turn: nextConversationCount },
+        });
+      }
+    }
+
     if (agent) {
       // 에이전트 상태 업데이트 (친밀도 +)
       if (agentStatus) {
