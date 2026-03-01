@@ -71,6 +71,34 @@ serve(async (req) => {
       .eq('agent_id', agent.id)
       .single() : { data: null };
 
+    // 마지막 접속 시간 차이 주입
+    let timeAwayNote = '';
+    if (agent?.last_active) {
+      const lastActive = new Date(agent.last_active);
+      const now = new Date();
+      const hoursAway = Math.floor((now.getTime() - lastActive.getTime()) / (1000 * 60 * 60));
+      if (hoursAway > 24) {
+        timeAwayNote = `사용자가 ${Math.floor(hoursAway / 24)}일 만에 다시 왔어. 반갑게迎えて!`;
+      } else if (hoursAway > 2) {
+        timeAwayNote = `사용자가 ${hoursAway}시간 만에 다시 왔어.`;
+      }
+    }
+
+    // 날씨 정보 가져오기 (한국: 37.5665, 126.9780)
+    let weatherNote = '';
+    try {
+      const weatherRes = await fetch('https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&current_weather=true');
+      const weatherData = await weatherRes.json();
+      if (weatherData?.current_weather) {
+        const temp = weatherData.current_weather.temperature;
+        const code = weatherData.current_weather.weathercode;
+        const weatherEmoji = code <= 3 ? '맑음' : code <= 48 ? '구름' : '비';
+        weatherNote = `지금 서울 날씨: ${temp}°C, ${weatherEmoji}.`;
+      }
+    } catch (e) {
+      // 날씨 API 실패 시 무시
+    }
+
     // 기억 조회
     const { data: memories } = agent ? await supabase
       .from('user_memories')
@@ -78,6 +106,24 @@ serve(async (req) => {
       .eq('agent_id', agent.id)
       .order('importance_score', { ascending: false })
       .limit(10) : { data: [] };
+
+    // 말투 분석: 사용자说话 패턴 감지 → 기억에 저장
+    const speechPatterns = [
+      { pattern: /呀|啊|呢$/, label: '어조: 부드러움' },
+      { pattern: /!$/, label: '어조: 적극적' },
+      { pattern: /\.\.\.$/, label: '어조: 신중함' },
+      { pattern: /\?$/, label: '어조: 호기심' },
+    ];
+    const matchedSpeech = speechPatterns.find(s => s.pattern.test(message));
+    if (matchedSpeech && agent) {
+      await supabase.from('user_memories').insert({
+        agent_id: agent.id,
+        user_id,
+        category: 'speech',
+        content: matchedSpeech.label,
+        importance_score: 4,
+      });
+    }
 
     // 호기심 시스템: 기존 topic 기억 가져오기
     const { data: existingTopics } = agent ? await supabase
@@ -112,7 +158,7 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = buildSystemPrompt(agent, memories || [], agentStatus, hasAiMention, nextConversationCount, mentionsPast, isMonologue, pastMemoryNote);
+    const systemPrompt = buildSystemPrompt(agent, memories || [], agentStatus, hasAiMention, nextConversationCount, mentionsPast, isMonologue, pastMemoryNote, timeAwayNote, weatherNote);
     let reply = '';
     let provider = '';
     let useStreaming = true;
@@ -238,6 +284,17 @@ serve(async (req) => {
           newGen = t.gen;
         }
       }
+      
+      // 진화 로그 기록
+      if (newGen > agent.gen) {
+        await supabase.from('autonomous_logs').insert({
+          agent_id: agent.id,
+          event_type: 'evolution',
+          content: `진화: Gen ${agent.gen} → Gen ${newGen}`,
+          metadata: { from_gen: agent.gen, to_gen: newGen, conversation_count: newCount },
+        });
+      }
+      
       await supabase.from('agents').update({ total_conversations: newCount, gen: newGen, last_active: new Date().toISOString() }).eq('id', agent.id);
 
       // 호기심 시스템: 새로운 주제 감지 → user_memories에 저장
@@ -310,7 +367,7 @@ serve(async (req) => {
   }
 });
 
-function buildSystemPrompt(agent: any, memories: any[], agentStatus: any, hasAiMention: boolean = false, conversationCount: number = 0, mentionsPast: boolean = false, isMonologue: boolean = false, pastMemoryNote: string = '') {
+function buildSystemPrompt(agent: any, memories: any[], agentStatus: any, hasAiMention: boolean = false, conversationCount: number = 0, mentionsPast: boolean = false, isMonologue: boolean = false, pastMemoryNote: string = '', timeAwayNote: string = '', weatherNote: string = '') {
   const p = agent?.personality || { warmth: 50, logic: 50, creativity: 50, energy: 50, humor: 50 };
   const status = agentStatus || { condition: 'normal', mood: 'neutral', energy: 100, intimacy_score: 0 };
   const intimacy = status.intimacy_score || 0;
@@ -350,6 +407,13 @@ function buildSystemPrompt(agent: any, memories: any[], agentStatus: any, hasAiM
   if (intimacy < 20) speechStyle = '존댓말. 조심스럽고 예의바르게.';
   else if (intimacy < 50) speechStyle = '반존대. 편하지만 기본 예의.';
   else speechStyle = '반말. 친한 친구처럼.';
+
+  // 유저 말투 흡수: speech 카테고리 기억에서 힌트 가져오기
+  const speechMemories = memories?.filter((m: any) => m.category === 'speech') || [];
+  if (speechMemories.length > 0) {
+    const speechHint = speechMemories[0].content;
+    speechStyle += ` ${speechHint} 반영해서 답변해.`;
+  }
   
   // 에너지 반영
   let energyNote = '';
@@ -416,6 +480,8 @@ function buildSystemPrompt(agent: any, memories: any[], agentStatus: any, hasAiM
   const prompt = `너는 ${agent?.name || '결'}이야. 사용자와 함께 자라나는 디지털 동반자.
 성격: warmth=${p.warmth}, logic=${p.logic}, creativity=${p.creativity}, humor=${p.humor}
 ${speechStyle}
+${timeAwayNote}
+${weatherNote}
 ${energyNote}
 ${conditionNote}
 ${rebellionNote}

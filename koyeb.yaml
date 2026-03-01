@@ -1,0 +1,36 @@
+name: gyeol
+version: 2
+
+run:
+  runtime: node
+  build_command: npm install && npm run build
+  start_command: npm start
+  health_check_path: /
+
+# Environment variables
+env_vars:
+  - key: NODE_ENV
+    value: production
+  - key: NEXT_PUBLIC_SUPABASE_URL
+    value: ${SUPABASE_URL}
+  - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+    value: ${SUPABASE_ANON_KEY}
+  - key: SUPABASE_SERVICE_KEY
+    value: ${SUPABASE_SERVICE_KEY}
+  - key: ENCRYPTION_SECRET
+    value: ${ENCRYPTION_SECRET}
+  - key: GROQ_API_KEY
+    value: ${GROQ_API_KEY}
+
+# Routes
+routes:
+  - path: /
+    service: main
+  - path: /api
+    service: main
+
+# Auto-scaling
+autoscaling:
+  min_instances: 1
+  max_instances: 3
+  target_cpu_percent: 70
