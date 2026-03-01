@@ -3,16 +3,45 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { user_id, amount, reason } = await request.json();
     
-    // TODO: 실제 Supabase에서 코인 업데이트
-    // const supabase = createClient(...);
-    // await supabase.from('coin_transactions').insert({ user_id, amount, reason });
+    if (!user_id || !amount) {
+      return NextResponse.json({ error: 'user_id and amount required' }, { status: 400 });
+    }
     
-    return NextResponse.json({ success: true, new_balance: 100 + amount });
+    // 기존 코인 조회
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('coins')
+      .eq('id', user_id)
+      .single();
+    
+    const currentCoins = profile?.coins || 0;
+    const newBalance = currentCoins + amount;
+    
+    // 코인 업데이트
+    await supabase
+      .from('profiles')
+      .update({ coins: newBalance })
+      .eq('id', user_id);
+    
+    // 거래 내역 저장
+    await supabase.from('coin_transactions').insert({
+      user_id,
+      amount,
+      reason: reason || '코인 거래',
+      type: amount > 0 ? 'reward' : 'spend',
+    });
+    
+    return NextResponse.json({ success: true, new_balance: newBalance });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   }
@@ -20,13 +49,20 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const user_id = request.nextUrl.searchParams.get('user_id');
     
-    // TODO: 실제 Supabase에서 코인 조회
-    // const supabase = createClient(...);
-    // const { data } = await supabase.from('profiles').select('coins').eq('id', user_id).single();
+    if (!user_id) {
+      return NextResponse.json({ error: 'user_id required' }, { status: 400 });
+    }
     
-    return NextResponse.json({ coins: 100 });
+    const { data } = await supabase
+      .from('profiles')
+      .select('coins')
+      .eq('id', user_id)
+      .single();
+    
+    return NextResponse.json({ coins: data?.coins || 0 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   }

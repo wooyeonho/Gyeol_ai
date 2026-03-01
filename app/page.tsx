@@ -6,11 +6,13 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useGyeolStore } from '@/store/gyeol-store';
 import { createClient } from '@/lib/supabase/client';
 import ChatInterface from '@/components/ChatInterface';
 import { BirthSequence } from '@/components/BirthSequence';
+import { EnergyBar, IntimacyDisplay } from '@/components/EnergyBar';
 
 const VoidCanvas = dynamic(() => import('@/components/VoidCanvas'), { ssr: false });
 
@@ -18,11 +20,13 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [showBirth, setShowBirth] = useState(false);
   const [ready, setReady] = useState(false);
+  const router = useRouter();
   
   const { 
     userId, 
     setUserId, 
-    agent, 
+    agent,
+    agentStatus,
     setAgent,
     setAgentStatus,
     setMessages,
@@ -117,6 +121,55 @@ export default function Home() {
     setIsLoading(false);
   }, [supabase, setUserId, setIsGuest, setAgent, setAgentStatus, setMessages]);
   
+  // Realtime 구독
+  useEffect(() => {
+    if (!supabase || !agent) return;
+    
+    const channel = supabase
+      .channel('agent-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'agents',
+          filter: `id=eq.${agent.id}`,
+        },
+        (payload) => {
+          console.log('Agent changed:', payload);
+          if (payload.new) {
+            setAgent(payload.new as any);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'agent_status',
+          filter: `agent_id=eq.${agent.id}`,
+        },
+        (payload) => {
+          console.log('Status changed:', payload);
+          if (payload.new) {
+            const newStatus = payload.new as any;
+            setAgentStatus({
+              condition: newStatus.condition || 'normal',
+              mood: newStatus.mood || 'neutral',
+              energy: newStatus.energy || 100,
+              intimacy_score: newStatus.intimacy_score || 0,
+            });
+          }
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, agent, setAgent, setAgentStatus]);
+  
   useEffect(() => {
     if (supabase) {
       setReady(true);
@@ -143,10 +196,16 @@ export default function Home() {
   
   return (
     <main className="relative w-full h-screen overflow-hidden bg-black">
-      <VoidCanvas agent={agent} isThinking={false} />
+      <VoidCanvas agent={agent} isThinking={false} mood={agentStatus?.mood || 'neutral'} />
       
-      <div className="absolute top-4 right-4 text-[10px] text-white/40">
-        Gen {agent.gen} · {agent.total_conversations} 대화 · {agent.name}
+      <div className="absolute top-4 right-4 text-[10px] text-white/40 flex flex-col items-end gap-1">
+        <div>Gen {agent.gen} · {agent.total_conversations} 대화 · {agent.name}</div>
+        {agentStatus && (
+          <div className="flex items-center gap-2">
+            <EnergyBar energy={agentStatus.energy} condition={agentStatus.condition} />
+            <IntimacyDisplay score={agentStatus.intimacy_score} />
+          </div>
+        )}
       </div>
       
       <ChatInterface />

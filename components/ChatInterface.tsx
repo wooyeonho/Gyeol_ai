@@ -12,7 +12,8 @@ export default function ChatInterface() {
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const silence5MinRef = useRef<NodeJS.Timeout | null>(null);
+  const silence30MinRef = useRef<NodeJS.Timeout | null>(null);
   const supabase = createClient();
   
   const { 
@@ -27,21 +28,38 @@ export default function ChatInterface() {
   // 침묵 인식 타이머
   useEffect(() => {
     const resetSilenceTimer = () => {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
+      // 기존 타이머 클리어
+      if (silence5MinRef.current) clearTimeout(silence5MinRef.current);
+      if (silence30MinRef.current) clearTimeout(silence30MinRef.current);
       
       // 5분 후 자동 메시지
-      silenceTimerRef.current = setTimeout(async () => {
-        if (!agent || !supabase) return;
-        // '바빠요?' 자동 전송 (사용자 대신)
-        console.log('沉默 5분 - 바빠요?');
+      silence5MinRef.current = setTimeout(async () => {
+        if (!agent || !supabase || !userId) return;
+        // '바빠요?' 메시지 추가
+        const autoMsg = {
+          id: crypto.randomUUID(),
+          agent_id: agent.id,
+          user_id: userId,
+          role: 'assistant' as const,
+          content: '바빠요?',
+          created_at: new Date().toISOString(),
+        };
+        addMessage(autoMsg);
       }, 5 * 60 * 1000);
       
       // 30분 후 자동 메시지
-      silenceTimerRef.current = setTimeout(async () => {
-        if (!agent || !supabase) return;
-        console.log('沉默 30분 - 먼저 갈게요');
+      silence30MinRef.current = setTimeout(async () => {
+        if (!agent || !supabase || !userId) return;
+        // '먼저 갈게요' 메시지 추가
+        const autoMsg = {
+          id: crypto.randomUUID(),
+          agent_id: agent.id,
+          user_id: userId,
+          role: 'assistant' as const,
+          content: '먼저 가 있을게요.',
+          created_at: new Date().toISOString(),
+        };
+        addMessage(autoMsg);
       }, 30 * 60 * 1000);
     };
     
@@ -51,11 +69,10 @@ export default function ChatInterface() {
     }
     
     return () => {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
+      if (silence5MinRef.current) clearTimeout(silence5MinRef.current);
+      if (silence30MinRef.current) clearTimeout(silence30MinRef.current);
     };
-  }, [messages, agent, supabase]);
+  }, [messages, agent, supabase, userId, addMessage]);
   
   // 메시지 전송
   const sendMessage = async () => {
@@ -125,7 +142,7 @@ export default function ChatInterface() {
         agent_id: agent.id,
         user_id: userId,
         role: 'assistant',
-        content: '...미안, 지금考え中有.',
+        content: '...미안, 지금 생각이 잘 안 돼.',
         created_at: new Date().toISOString(),
       });
     }

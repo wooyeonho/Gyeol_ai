@@ -36,6 +36,20 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // Kill Switch 체크
+    const { data: killSwitch } = await supabase
+      .from('system_state')
+      .select('value')
+      .eq('key', 'kill_switch')
+      .single();
+    
+    if (killSwitch?.value === 'true') {
+      return new Response(JSON.stringify({ error: 'Service temporarily unavailable' }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { data: agent } = await supabase
       .from('agents')
       .select('*')

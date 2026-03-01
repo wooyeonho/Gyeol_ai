@@ -60,3 +60,37 @@ CREATE TRIGGER on_agent_created
   AFTER INSERT ON agents
   FOR EACH ROW
   EXECUTE FUNCTION create_agent_status();
+
+-- 코인 추가 RPC
+CREATE OR REPLACE FUNCTION add_coins(user_id UUID, amount INTEGER)
+RETURNS void AS $$
+BEGIN
+  UPDATE profiles
+  SET coins = COALESCE(coins, 0) + amount
+  WHERE id = user_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 에너지 감소 RPC
+CREATE OR REPLACE FUNCTION decrease_energy(agent_id UUID, amount INTEGER)
+RETURNS void AS $$
+BEGIN
+  UPDATE agent_status
+  SET energy = GREATEST(0, energy - amount)
+  WHERE agent_id = agent_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 시스템 상태 테이블 (Kill Switch 등)
+CREATE TABLE IF NOT EXISTS system_state (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS
+ALTER TABLE system_state ENABLE ROW LEVEL SECURITY;
+
+-- 모든 사용자가 조회 가능
+CREATE POLICY "system_state_read" ON system_state FOR SELECT USING (true);
+CREATE POLICY "system_state_admin" ON system_state FOR ALL USING (true);

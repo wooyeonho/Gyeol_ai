@@ -16,18 +16,31 @@ interface VoidCanvasProps {
   agent: Agent | null;
   isThinking?: boolean;
   isListening?: boolean;
+  mood?: string;
 }
 
-function ParticleSystem({ visualState, isThinking, isListening }: { 
+function ParticleSystem({ visualState, isThinking, isListening, mood }: { 
   visualState: VisualState; 
   isThinking?: boolean;
   isListening?: boolean;
+  mood?: string;
 }) {
   const pointsRef = useRef<THREE.Points>(null);
   
   const particleCount = visualState?.particle_count || 10;
   const glowIntensity = visualState?.glow_intensity || 0.3;
-  const colorPrimary = visualState?.color_primary || '#FFFFFF';
+  
+  // mood별 색상
+  const MOOD_COLORS: Record<string, string> = {
+    happy: '#ffd700',
+    sad: '#4a9eff',
+    angry: '#ff4444',
+    excited: '#ff69b4',
+    anxious: '#9b59b6',
+    neutral: '#FFFFFF',
+  };
+  const moodColor = MOOD_COLORS[mood || 'neutral'] || '#FFFFFF';
+  const colorPrimary = visualState?.color_primary || moodColor;
   const colorSecondary = visualState?.color_secondary || '#4F46E5';
   
   // 파티클 위치 생성
@@ -77,7 +90,16 @@ function ParticleSystem({ visualState, isThinking, isListening }: {
     pointsRef.current.rotation.x = Math.sin(time * 0.2) * 0.1;
     
     // 생각 중일 때 더 빠르게 움직임
-    const speed = isThinking ? 2 : isListening ? 3 : 1;
+    // mood별 속도: excited=빠름, sad=느림
+    const moodSpeed: Record<string, number> = {
+      happy: 1.2,
+      excited: 1.5,
+      neutral: 1,
+      anxious: 0.8,
+      sad: 0.6,
+      angry: 1.3,
+    };
+    const speed = isThinking ? 2 : isListening ? 3 : (moodSpeed[mood || 'neutral'] || 1);
     pointsRef.current.rotation.y += 0.001 * speed;
     
     // 빛 intensity 조절
@@ -100,10 +122,19 @@ function ParticleSystem({ visualState, isThinking, isListening }: {
   );
 }
 
-function GlowSphere({ visualState }: { visualState: VisualState }) {
+function GlowSphere({ visualState, mood }: { visualState: VisualState; mood?: string }) {
   const meshRef = useRef<THREE.Mesh>(null);
   
-  const color = visualState?.color_primary || '#FFFFFF';
+  const MOOD_COLORS: Record<string, string> = {
+    happy: '#ffd700',
+    sad: '#4a9eff',
+    angry: '#ff4444',
+    excited: '#ff69b4',
+    anxious: '#9b59b6',
+    neutral: '#FFFFFF',
+  };
+  const moodColor = MOOD_COLORS[mood || 'neutral'] || '#FFFFFF';
+  const color = visualState?.color_primary || moodColor;
   const glow = visualState?.glow_intensity || 0.3;
   
   useFrame((state) => {
@@ -124,7 +155,7 @@ function GlowSphere({ visualState }: { visualState: VisualState }) {
   );
 }
 
-export default function VoidCanvas({ agent, isThinking = false, isListening = false }: VoidCanvasProps) {
+export default function VoidCanvas({ agent, isThinking = false, isListening = false, mood = 'neutral' }: VoidCanvasProps) {
   const visualState = agent?.visual_state || {
     color_primary: '#FFFFFF',
     color_secondary: '#4F46E5',
@@ -139,13 +170,14 @@ export default function VoidCanvas({ agent, isThinking = false, isListening = fa
         <color attach="background" args={['#000000']} />
         
         {/* 글로우 구 */}
-        <GlowSphere visualState={visualState} />
+        <GlowSphere visualState={visualState} mood={mood} />
         
         {/* 파티클 시스템 */}
         <ParticleSystem 
           visualState={visualState} 
           isThinking={isThinking}
           isListening={isListening}
+          mood={mood}
         />
         
         {/* 조명 */}
