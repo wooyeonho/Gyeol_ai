@@ -15,7 +15,10 @@ import { BirthSequence } from '@/components/BirthSequence';
 import { EnergyBar, IntimacyDisplay } from '@/components/EnergyBar';
 import { EvolutionCeremony } from '@/components/EvolutionCeremony';
 
-const VoidCanvas = dynamic(() => import('@/components/VoidCanvas'), { ssr: false });
+const VoidCanvas = dynamic(() => import('@/components/VoidCanvas'), { 
+  ssr: false, 
+  loading: () => <div className="animate-pulse bg-black w-full h-full" />
+});
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
