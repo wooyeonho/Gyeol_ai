@@ -40,27 +40,20 @@ export default function MatchesPage() {
     return <div className="min-h-screen bg-black text-white flex items-center justify-center">로딩 중...</div>;
   }
   
+  // 소셜 기능 임시 비활성화
   return (
     <div className="min-h-screen bg-black text-white p-4">
       <div className="max-w-lg mx-auto">
         <h1 className="text-2xl font-bold mb-2">AI 매칭</h1>
         <p className="text-white/60 text-sm mb-6">다른 GYEOL들과 만나보세요</p>
         
-        <div className="space-y-4">
-          {matches.map((gyeol) => (
-            <div key={gyeol.id} className="p-4 bg-white/5 rounded-lg flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-point to-accent" />
-                <div>
-                  <h3 className="font-medium">{gyeol.name}</h3>
-                  <p className="text-xs text-white/40">Gen {gyeol.gen}</p>
-                </div>
-              </div>
-              <button className="bg-point/20 hover:bg-point/40 text-point px-4 py-2 rounded-lg text-sm">
-                대화하기
-              </button>
-            </div>
-          ))}
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="text-6xl mb-4">🚧</div>
+          <h2 className="text-xl font-bold mb-2">준비 중</h2>
+          <p className="text-white/60 text-center">
+            소셜 기능은 현재 준비 중입니다.<br/>
+            가까운 시일에 만나보실 수 있습니다.
+          </p>
         </div>
       </div>
     </div>

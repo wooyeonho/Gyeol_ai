@@ -79,7 +79,7 @@ export function BirthSequence({ userId, onComplete }: BirthSequenceProps) {
     if (!inputValue.trim()) return;
     setUserName(inputValue.trim());
     setStage('first_question');
-    await createAgent(inputValue.trim());
+    // 이름만 저장하고 stage 이동 - 실제 에이전트는 personality_choice에서 생성
   };
   
   const handleEmotionResponse = async (emotion: string) => {
@@ -203,6 +203,24 @@ export function BirthSequence({ userId, onComplete }: BirthSequenceProps) {
   async function createAgentFromPersonalityChoice(personalityType: string) {
     if (!supabase) return;
     try {
+      // 중복 생성 방지
+      const { data: existing } = await supabase
+        .from('agents')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (existing) {
+        const { data: agent } = await supabase
+          .from('agents')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+        if (agent) {
+          onComplete(agent);
+          return;
+        }
+      }
+      
       const emotion = userEmotion || 'neutral';
       const basePersonality = emotionToPersonality(emotion);
       const bonus = personalityBonuses[personalityType] || {};

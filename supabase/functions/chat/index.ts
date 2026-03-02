@@ -143,16 +143,16 @@ serve(async (req) => {
       }
     }
 
-    // 사용자 티어 확인 (무료 사용자每日 10회 제한)
+    // 사용자 티어 확인 (무료 사용자 일일 10회 제한)
     const { data: profile } = await supabase
       .from('profiles')
       .select('tier, daily_messages, last_message_date')
       .eq('id', user_id)
       .single();
 
-    // 일일 메시지限制 적용
+    // 일일 메시지 제한 적용
     const today = new Date().toISOString().split('T')[0];
-    let dailyLimit = 100; // 기본값 (足够一般使用)
+    let dailyLimit = 100; // 기본값 (일반 사용에 충분)
     if (profile?.tier === 'free') {
       dailyLimit = 10;
     } else if (profile?.tier === 'pro') {
@@ -166,7 +166,7 @@ serve(async (req) => {
       currentDailyCount = profile?.daily_messages || 0;
     }
 
-    //限制检查
+    // 제한 검사
     if (currentDailyCount >= dailyLimit) {
       return new Response(JSON.stringify({ 
         error: '일일 메시지 제한에 도달했습니다. 내일 다시 시도해주세요.',
@@ -414,10 +414,20 @@ serve(async (req) => {
             }
           }
           
-          // 대화 수 + 진화 체크
+          // 대화 수 + 진화 체크 (constants.ts와 동기화 필요 - Edge Function은 lib import 불가)
           const newCount = nextConversationCount;
           let newGen = agent.gen;
-          const thresholds = [{ gen: 2, conversations: 20 }, { gen: 3, conversations: 50 }, { gen: 4, conversations: 100 }, { gen: 5, conversations: 200 }];
+          const thresholds = [
+            { gen: 2, conversations: 20 },
+            { gen: 3, conversations: 50 },
+            { gen: 4, conversations: 100 },
+            { gen: 5, conversations: 200 },
+            { gen: 6, conversations: 350 },
+            { gen: 7, conversations: 500 },
+            { gen: 8, conversations: 750 },
+            { gen: 9, conversations: 1000 },
+            { gen: 10, conversations: 1500 },
+          ];
           for (const t of thresholds) {
             if (newCount >= t.conversations && agent.gen < t.gen) {
               newGen = t.gen;
@@ -591,10 +601,20 @@ serve(async (req) => {
         }).eq('agent_id', agent.id);
       }
       
-      // 대화 수 + 진화 체크
+      // 대화 수 + 진화 체크 (constants.ts와 동기화 필요 - Edge Function은 lib import 불가)
       const newCount = agent.total_conversations + 1;
       let newGen = agent.gen;
-      const thresholds = [{ gen: 2, conversations: 20 }, { gen: 3, conversations: 50 }, { gen: 4, conversations: 100 }, { gen: 5, conversations: 200 }];
+      const thresholds = [
+        { gen: 2, conversations: 20 },
+        { gen: 3, conversations: 50 },
+        { gen: 4, conversations: 100 },
+        { gen: 5, conversations: 200 },
+        { gen: 6, conversations: 350 },
+        { gen: 7, conversations: 500 },
+        { gen: 8, conversations: 750 },
+        { gen: 9, conversations: 1000 },
+        { gen: 10, conversations: 1500 },
+      ];
       for (const t of thresholds) {
         if (newCount >= t.conversations && agent.gen < t.gen) {
           newGen = t.gen;
