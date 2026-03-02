@@ -110,6 +110,41 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .single();
 
+    // 사용자 티어 확인 (무료 用户每日 10회 제한)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tier, daily_messages, last_message_date')
+      .eq('id', user_id)
+      .single();
+
+    // 일일 메시지限制 적용
+    const today = new Date().toISOString().split('T')[0];
+    let dailyLimit = 100; // 기본값 (足够一般使用)
+    if (profile?.tier === 'free') {
+      dailyLimit = 10;
+    } else if (profile?.tier === 'pro') {
+      dailyLimit = 100;
+    }
+
+    // 마지막 메시지 날짜 확인
+    const lastDate = profile?.last_message_date?.split('T')[0] || '';
+    let currentDailyCount = 0;
+    if (lastDate === today) {
+      currentDailyCount = profile?.daily_messages || 0;
+    }
+
+    //限制检查
+    if (currentDailyCount >= dailyLimit) {
+      return new Response(JSON.stringify({ 
+        error: '일일 메시지 제한에 도달했습니다. 내일 다시 시도해주세요.',
+        tier: profile?.tier || 'free',
+        remaining: 0
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // 현재 대화 수 (다음 대화 번호)
     const currentConversationCount = agent?.total_conversations || 0;
     const nextConversationCount = currentConversationCount + 1;
@@ -429,9 +464,8 @@ serve(async (req) => {
       if (newGen > agent.gen) {
         await supabase.from('autonomous_logs').insert({
           agent_id: agent.id,
-          event_type: 'evolution',
-          content: `진화: Gen ${agent.gen} → Gen ${newGen}`,
-          metadata: { from_gen: agent.gen, to_gen: newGen, conversation_count: newCount },
+          action: 'evolution',
+          result: { from_gen: agent.gen, to_gen: newGen, conversation_count: newCount },
         });
       }
       
