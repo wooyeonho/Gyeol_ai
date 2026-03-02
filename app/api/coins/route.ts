@@ -25,6 +25,15 @@ export async function POST(request: NextRequest) {
       .single();
     
     const currentCoins = profile?.coins || 0;
+    
+    // 코인 차감 시 잔액 음수 방지
+    if (amount < 0 && currentCoins + amount < 0) {
+      return NextResponse.json({ 
+        error: '코인이 부족합니다', 
+        code: 'INSUFFICIENT_COINS' 
+      }, { status: 400 });
+    }
+    
     const newBalance = currentCoins + amount;
     
     // 코인 업데이트

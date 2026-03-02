@@ -83,16 +83,4 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 시스템 상태 테이블 (Kill Switch 등)
-CREATE TABLE IF NOT EXISTS system_state (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- RLS
-ALTER TABLE system_state ENABLE ROW LEVEL SECURITY;
-
--- 모든 사용자가 조회 가능
-CREATE POLICY "system_state_read" ON system_state FOR SELECT USING (true);
-CREATE POLICY "system_state_admin" ON system_state FOR ALL USING (true);
+-- 시스템 상태 테이블은 001_schema.sql에서 이미 생성됨
