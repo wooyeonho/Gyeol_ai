@@ -6,6 +6,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { useGyeolStore } from '@/store/gyeol-store';
 
 interface NavItem {
@@ -38,7 +39,7 @@ export function Navigation() {
           const isActive = pathname === item.href || 
             (item.href !== '/' && pathname.startsWith(item.href));
           return (
-            <a
+            <Link
               key={item.href}
               href={item.href}
               className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${
@@ -49,7 +50,7 @@ export function Navigation() {
             >
               <span className="text-xl mb-1">{item.icon}</span>
               <span className="text-[10px]">{item.label}</span>
-            </a>
+            </Link>
           );
         })}
       </div>

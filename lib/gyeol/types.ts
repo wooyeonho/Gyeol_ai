@@ -21,6 +21,7 @@ export interface Agent {
   evolution_progress: number;
   personality: Personality;
   visual_state: VisualState;
+  skills?: string[];
   self_image_url?: string;
   preferred_provider: string;
   birth_stage: string;

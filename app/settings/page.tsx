@@ -10,14 +10,28 @@ import { createClient } from '@/lib/supabase/client';
 
 export default function SettingsPage() {
   const { agent } = useGyeolStore();
+  const supabase = createClient();
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [tier] = useState('free');
+  const [tier, setTier] = useState('free');
+  const [coins, setCoins] = useState(0);
   
   useEffect(() => {
-    // Check if agent is loaded
-    if (agent) setLoading(false);
-  }, [agent]);
+    if (!supabase || !agent) {
+      if (agent) setLoading(false);
+      return;
+    }
+    
+    // 프로필에서 tier와 coins 조회
+    supabase.from('profiles').select('tier, coins').eq('id', agent.user_id).single()
+      .then(({ data }) => {
+        if (data) {
+          setTier(data.tier || 'free');
+          setCoins(data.coins || 0);
+        }
+        setLoading(false);
+      });
+  }, [supabase, agent]);
   
   if (loading || !agent) {
     return (
@@ -109,6 +123,20 @@ export default function SettingsPage() {
                 업그레이드
               </button>
             </div>
+          </div>
+        </section>
+        
+        {/* 코인 */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-4">코인</h2>
+          <div className="p-4 bg-white/5 rounded-lg flex items-center justify-between">
+            <div>
+              <div className="font-medium text-point text-xl">{coins} 코인</div>
+              <div className="text-sm text-white/60">스킨과 스킬을 구매할 수 있어요</div>
+            </div>
+            <button className="bg-point px-4 py-2 rounded-lg text-sm">
+              충전
+            </button>
           </div>
         </section>
         

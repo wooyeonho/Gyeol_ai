@@ -8,6 +8,32 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { AutonomousLog } from '@/lib/gyeol/types';
 
+// 액션별 한국어 라벨
+const actionLabels: Record<string, string> = {
+  'personality_evolve': '성격 변화',
+  'ai_personality_evolve': 'AI 기반 성격 진화',
+  'evolution': '진화!',
+  'daily_reflection': '하루 성찰',
+  'learner': '자율 학습',
+  'curiosity': '호기심 활동',
+  'emotion_analysis': '감정 분석',
+  'moltbook_generated': '일기 작성',
+  'dream': '꿈',
+};
+
+// result를 보기 좋게 변환
+function formatResult(action: string, result: any): string {
+  if (!result) return '';
+  if (typeof result === 'string') return result.slice(0, 80);
+  if (action === 'evolution' && result.from_gen !== undefined) {
+    return `Gen ${result.from_gen} → Gen ${result.to_gen}`;
+  }
+  if (action === 'learner' && result.learned) return result.learned.slice(0, 80);
+  if (action === 'daily_reflection' && result.summary) return result.summary.slice(0, 80);
+  if (action === 'dream' && result.dream) return result.dream.slice(0, 80);
+  return JSON.stringify(result).slice(0, 80);
+}
+
 interface ActivityFeedProps {
   agentId: string;
 }
@@ -67,13 +93,11 @@ export function ActivityFeed({ agentId }: ActivityFeedProps) {
               {new Date(log.created_at).toLocaleString('ko-KR')}
             </span>
             <span className="text-xs bg-point/20 text-point px-2 py-0.5 rounded">
-              {log.action}
+              {actionLabels[log.action] || log.action}
             </span>
           </div>
           <div className="text-sm text-white/80">
-            {typeof log.result === 'object' 
-              ? JSON.stringify(log.result).slice(0, 100) 
-              : log.result}
+            {formatResult(log.action, log.result)}
           </div>
         </div>
       ))}

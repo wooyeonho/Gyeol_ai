@@ -266,3 +266,9 @@ END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created_agent
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_agent();
+
+-- 인덱스: coin_transactions
+CREATE INDEX idx_coin_tx_user ON coin_transactions(user_id, created_at DESC);
+
+-- 인덱스: conversations
+CREATE INDEX idx_conv_user_role ON conversations(user_id, role, created_at DESC);

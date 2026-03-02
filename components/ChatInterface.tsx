@@ -136,6 +136,7 @@ export default function ChatInterface() {
       const contentType = response.headers.get('content-type') || '';
       let reply = '';
       let emotion = { detected: 'neutral', intensity: 0.5, topic: '' };
+      let tempId = '';
       
       if (contentType.includes('text/event-stream')) {
         // SSE 스트리밍 처리
@@ -146,7 +147,7 @@ export default function ChatInterface() {
         let buffer = '';
         
         // 즉시 화면에 표시
-        const tempId = crypto.randomUUID();
+        tempId = crypto.randomUUID();
         addMessage({
           id: tempId,
           agent_id: agent.id,
@@ -185,7 +186,7 @@ export default function ChatInterface() {
         emotion = data.emotion || { detected: 'neutral', intensity: 0.5, topic: '' };
       }
       
-      // 결의 응답 추가
+      // 결의 응답 추가 (스트리밍으로 이미 표시된 경우 새 메시지 추가하지 않음)
       const assistantMsg = {
         id: crypto.randomUUID(),
         agent_id: agent.id,
@@ -196,7 +197,13 @@ export default function ChatInterface() {
         provider: 'groq',
         created_at: new Date().toISOString(),
       };
-      addMessage(assistantMsg);
+      
+      // 스트리밍으로 이미 표시된 경우 최종 메시지만 업데이트
+      if (contentType.includes('text/event-stream')) {
+        updateMessage(tempId, assistantMsg);
+      } else {
+        addMessage(assistantMsg);
+      }
       
     } catch (error) {
       console.error('Chat error:', error);
