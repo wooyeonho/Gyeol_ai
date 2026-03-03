@@ -47,12 +47,15 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // 모든 에이전트 상태 조회
+    // 모든 에이전트 상태 조회 (agents와 JOIN하여 user_id 함께 조회 - N+1 방지)
     const { data: statuses } = await supabase
       .from('agent_status')
-      .select('agent_id');
+      .select('agent_id, agents(user_id, name, personality)');
 
     for (const status of statuses || []) {
+      // agents 조인 결과에서 user_id 가져오기
+      const userId = (status as any).agents?.user_id;
+      
       // 1. 최근 대화 10개 감정 분석
       const { data: recentConvos } = await supabase
         .from('conversations')
@@ -74,10 +77,10 @@ serve(async (req) => {
         else if (/화나|분노|열받/.test(userText)) mood = 'angry';
         else if (/신나|재밌|멋지/.test(userText)) mood = 'excited';
 
-        // 감정 기억 저장
+        // 감정 기억 저장 (userId 사용 - 별도 조회 불필요)
         await supabase.from('user_memories').insert({
           agent_id: status.agent_id,
-          user_id: (await supabase.from('agents').select('user_id').eq('id', status.agent_id).single()).data?.user_id,
+          user_id: userId,
           category: 'emotion',
           content: `사용자 최근 감정: ${mood}`,
           importance_score: 5,

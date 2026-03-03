@@ -15,6 +15,15 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+let _env: Env | null = null;
+
+export function getEnv(): Env {
+  if (!_env) {
+    _env = parseEnv();
+  }
+  return _env;
+}
+
 function parseEnv() {
   const env = {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -33,10 +42,15 @@ function parseEnv() {
   
   if (!result.success) {
     console.error('Environment validation failed:', result.error.flatten().fieldErrors);
-    throw new Error('Invalid environment variables');
+    // 개발 환경에서는 경고만 하고 진행
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Invalid environment variables');
+    }
+    return env as Env;
   }
 
   return result.data;
 }
 
-export const env = parseEnv();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const env = getEnv();

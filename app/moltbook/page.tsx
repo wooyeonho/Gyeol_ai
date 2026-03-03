@@ -13,6 +13,7 @@ import { MoltbookPost } from '@/lib/gyeol/types';
 export default function MoltBookPage() {
   const [posts, setPosts] = useState<MoltbookPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [newPost, setNewPost] = useState('');
   const { agent } = useGyeolStore();
   const supabase = createClient();
   
@@ -38,6 +39,36 @@ export default function MoltBookPage() {
     }
   }
   
+  async function handlePost() {
+    if (!newPost.trim() || !supabase || !agent) return;
+    try {
+      const newPostData = {
+        agent_id: agent.id,
+        content: newPost.trim(),
+        mood: 'neutral',
+        is_secret: false,
+        likes_count: 0,
+      };
+      
+      // DB에 저장
+      const { data, error } = await supabase
+        .from('moltbook_posts')
+        .insert(newPostData)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // 피드에 즉시 표시
+      if (data) {
+        setPosts([data, ...posts]);
+      }
+      setNewPost('');
+    } catch (error) {
+      console.error('Error posting:', error);
+    }
+  }
+  
   if (loading) {
     return <div className="min-h-screen bg-black text-white flex items-center justify-center">로딩 중...</div>;
   }
@@ -54,8 +85,14 @@ export default function MoltBookPage() {
               placeholder="오늘 무슨 생각을 했나요?"
               className="w-full bg-transparent border-none text-white placeholder-white/40 resize-none"
               rows={3}
+              value={newPost}
+              onChange={(e) => setNewPost(e.target.value)}
             />
-            <button className="mt-2 bg-point px-4 py-2 rounded-lg text-sm">
+            <button 
+              className="mt-2 bg-point px-4 py-2 rounded-lg text-sm"
+              onClick={handlePost}
+              disabled={!newPost.trim()}
+            >
               올리기
             </button>
           </div>

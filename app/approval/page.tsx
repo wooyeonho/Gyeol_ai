@@ -38,9 +38,31 @@ export default function ApprovalPage() {
   }
   
   async function handleApprove(id: string) {
-    if (!supabase) return;
-    await supabase.from('approval_queue').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', id);
-    setApprovals(approvals.filter(a => a.id !== id));
+    if (!supabase || !agent) return;
+    
+    // 승인된 요청 정보 가져오기
+    const approval = approvals.find(a => a.id === id);
+    if (!approval) return;
+    
+    try {
+      // change_type에 따라 실제 에이전트 정보 업데이트
+      if (approval.change_type === 'name') {
+        await supabase.from('agents').update({ name: approval.new_value }).eq('id', agent.id);
+      } else if (approval.change_type === 'personality') {
+        const newPersonality = JSON.parse(approval.new_value);
+        await supabase.from('agents').update({ personality: newPersonality }).eq('id', agent.id);
+      } else if (approval.change_type === 'mood') {
+        await supabase.from('agent_status').update({ mood: approval.new_value }).eq('agent_id', agent.id);
+      } else if (approval.change_type === 'condition') {
+        await supabase.from('agent_status').update({ condition: approval.new_value }).eq('agent_id', agent.id);
+      }
+      
+      // 상태 업데이트
+      await supabase.from('approval_queue').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', id);
+      setApprovals(approvals.filter(a => a.id !== id));
+    } catch (error) {
+      console.error('Error applying approval:', error);
+    }
   }
   
   async function handleDeny(id: string) {

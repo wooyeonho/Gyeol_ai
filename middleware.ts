@@ -42,10 +42,20 @@ export async function middleware(request: NextRequest) {
     // supabase.auth.getUser()를 호출해야 쿠키 갱신 로직이 실행됨
     const { data: { user } } = await supabase.auth.getUser()
 
-    // (선택) 여기서 user 존재 여부에 따른 리다이렉트 로직 구현 가능
-    // if (!user && request.nextUrl.pathname.startsWith('/protected')) {
-    //   return NextResponse.redirect(new URL('/login', request.url))
-    // }
+    // 리다이렉트 로직 활성화
+    const publicRoutes = ['/login', '/landing', '/api'];
+    const isPublicRoute = publicRoutes.some(r => request.nextUrl.pathname.startsWith(r));
+
+    if (!user && !isPublicRoute) {
+      // 메인 페이지(/)는 허용 (익명 로그인 자동 처리)
+      if (request.nextUrl.pathname !== '/') {
+        return NextResponse.redirect(new URL('/login', request.url));
+      }
+    }
+
+    if (user && request.nextUrl.pathname === '/login') {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
 
     return supabaseResponse
   } catch (e) {
