@@ -79,52 +79,12 @@ export function BirthSequence({ userId, onComplete }: BirthSequenceProps) {
     if (!inputValue.trim()) return;
     setUserName(inputValue.trim());
     setStage('first_question');
-    await createAgent(inputValue.trim());
   };
   
   const handleEmotionResponse = async (emotion: string) => {
     setUserEmotion(emotion);
     setStage('personality_choice');
   };
-  
-  async function createAgent(name: string) {
-    if (!supabase) return;
-    try {
-      const emotion = 'neutral';
-      const visualState = {
-        ...DEFAULT_VISUAL,
-        color_primary: emotionToColor(emotion),
-      };
-      const personality = emotionToPersonality(emotion);
-      
-      const { data: agent, error } = await supabase
-        .from('agents')
-        .insert({
-          user_id: userId,
-          name: name || '결',
-          gen: 1,
-          total_conversations: 0,
-          evolution_progress: 0,
-          personality,
-          visual_state: visualState,
-          birth_stage: 'complete',
-          birth_emotion: emotion,
-        })
-        .select()
-        .single();
-      
-      if (error || !agent) throw error || new Error('No agent created');
-      
-      await supabase
-        .from('agents')
-        .update({ total_conversations: 1 })
-        .eq('id', agent.id);
-      
-      onComplete(agent);
-    } catch (error) {
-      console.error('Error creating agent:', error);
-    }
-  }
   
   async function updateAgentForEmotion(emotion: string) {
     if (!supabase) return;
@@ -201,7 +161,13 @@ export function BirthSequence({ userId, onComplete }: BirthSequenceProps) {
 
   // personality_choice에서 에이전트 생성
   async function createAgentFromPersonalityChoice(personalityType: string) {
-    if (!supabase) return;
+    if (!supabase || !userId) return;
+    // 중복 생성 방지
+    const { data: existing } = await supabase.from('agents').select('*').eq('user_id', userId).maybeSingle();
+    if (existing) {
+      onComplete(existing as Agent);
+      return;
+    }
     try {
       const emotion = userEmotion || 'neutral';
       const basePersonality = emotionToPersonality(emotion);

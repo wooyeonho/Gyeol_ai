@@ -6,53 +6,12 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { callGroq, generateEmbedding } from '../_shared/ai.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// 벡터 임베딩 생성 (Cloudflare Workers AI 또는 폴백)
-async function generateEmbedding(text: string): Promise<number[]> {
-  const accountId = Deno.env.get('CLOUDFLARE_ACCOUNT_ID');
-  const apiToken = Deno.env.get('CLOUDFLARE_API_TOKEN');
-  
-  if (!accountId || !apiToken) {
-    return fallbackEmbedding(text);
-  }
-
-  try {
-    const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/baai/bge-small-en-v1.5`,
-      {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${apiToken}`, 
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify({ text: [text] }),
-      }
-    );
-
-    const data = await response.json();
-    if (data?.result?.data?.[0]) {
-      return data.result.data[0];
-    }
-  } catch (err) {
-    console.error('[embedding] Cloudflare API failed, using fallback:', err);
-  }
-  
-  return fallbackEmbedding(text);
-}
-
-function fallbackEmbedding(text: string): number[] {
-  const vec = new Array(384).fill(0);
-  for (let i = 0; i < text.length; i++) {
-    vec[text.charCodeAt(i) % 384] += 1;
-  }
-  const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0)) || 1;
-  return vec.map(v => v / norm);
-}
 
 interface ChatRequest {
   user_id: string;
@@ -110,16 +69,16 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .single();
 
-    // 사용자 티어 확인 (무료 用户每日 10회 제한)
+    // 사용자 티어 확인 (무료 사용자 일일 10회 제한)
     const { data: profile } = await supabase
       .from('profiles')
       .select('tier, daily_messages, last_message_date')
       .eq('id', user_id)
       .single();
 
-    // 일일 메시지限制 적용
+    // 일일 메시지 제한 적용
     const today = new Date().toISOString().split('T')[0];
-    let dailyLimit = 100; // 기본값 (足够一般使用)
+    let dailyLimit = 100; // 기본값 (일반 사용에 충분)
     if (profile?.tier === 'free') {
       dailyLimit = 10;
     } else if (profile?.tier === 'pro') {
@@ -133,7 +92,7 @@ serve(async (req) => {
       currentDailyCount = profile?.daily_messages || 0;
     }
 
-    //限制检查
+    // 제한 검사
     if (currentDailyCount >= dailyLimit) {
       return new Response(JSON.stringify({ 
         error: '일일 메시지 제한에 도달했습니다. 내일 다시 시도해주세요.',
@@ -194,9 +153,9 @@ serve(async (req) => {
       .order('importance_score', { ascending: false })
       .limit(10) : { data: [] };
 
-    // 말투 분석: 사용자说话 패턴 감지 → 기억에 저장
+    // 말투 분석: 사용자 말하기 패턴 감지 -> 기억에 저장
     const speechPatterns = [
-      { pattern: /呀|啊|呢$/, label: '어조: 부드러움' },
+      { pattern: /요$|네$|죠$/, label: '어조: 부드러움' },
       { pattern: /!$/, label: '어조: 적극적' },
       { pattern: /\.\.\.$/, label: '어조: 신중함' },
       { pattern: /\?$/, label: '어조: 호기심' },
@@ -222,7 +181,7 @@ serve(async (req) => {
     
     const existingTopicSet = new Set((existingTopics || []).map((t: any) => t.content.toLowerCase()));
 
-    // 독백 감지: "아니다", "생각해보니" 등 자기 말类型
+    // 독백 감지: "아니다", "생각해보니" 등 자기 말 유형
     const monologuePatterns = [/^아니다$/, /^생각해보니$/, /^다시 생각해보면$/, /^실제로는$/, /^아,/];
     const isMonologue = monologuePatterns.some(p => message.trim().startsWith(p));
 
@@ -287,7 +246,7 @@ serve(async (req) => {
       // 스트리밍 시도
       const stream = await callGroqStream(systemPrompt, sanitizedMessage);
       
-      // 스트리밍 응답 반환 +后台 저장
+      // 스트리밍 응답 반환 + 백그라운드 저장
       // 스트리밍 응답을 먼저 클라이언트에 보내고, 완료 후 DB에 저장
       const encoder = new TextEncoder();
       const { readable, writable } = new TransformStream();
@@ -295,7 +254,7 @@ serve(async (req) => {
       const streamWriter = writable.getWriter();
       let fullReply = '';
       
-      //后台에서 스트림 읽으며 저장
+      // 백그라운드에서 스트림 읽으며 저장
       (async () => {
         try {
           const reader = stream.getReader();
@@ -312,6 +271,13 @@ serve(async (req) => {
         // 스트림 완료 후 DB 저장
         if (fullReply && agent) {
           const emotion = analyzeEmotion(fullReply);
+          // user 메시지 저장
+          await supabase.from('conversations').insert({
+            agent_id: agent.id,
+            user_id,
+            role: 'user',
+            content: sanitizedMessage,
+          });
           await supabase.from('conversations').insert({
             agent_id: agent.id,
             user_id,
@@ -346,6 +312,52 @@ serve(async (req) => {
               updated_at: new Date().toISOString(),
             }).eq('agent_id', agent.id);
           }
+
+          // === 대화 수 증가 + 진화 체크 ===
+          try {
+            const newCount = (agent.total_conversations || 0) + 1;
+            let newGen = agent.gen;
+            // 출처: lib/gyeol/constants.ts GEN_THRESHOLDS 와 동일하게 유지할 것
+            const thresholds = [{ gen: 2, conversations: 20 }, { gen: 3, conversations: 50 }, { gen: 4, conversations: 100 }, { gen: 5, conversations: 200 }];
+            for (const t of thresholds) { if (newCount >= t.conversations && agent.gen < t.gen) newGen = t.gen; }
+            if (newGen > agent.gen) {
+              await supabase.from('autonomous_logs').insert({ agent_id: agent.id, action: 'evolution', result: { from_gen: agent.gen, to_gen: newGen, conversation_count: newCount } });
+            }
+            await supabase.from('agents').update({ total_conversations: newCount, gen: newGen, last_active: new Date().toISOString() }).eq('id', agent.id);
+          } catch (e) { console.error('[stream-post] evolution:', e); }
+
+          // === 호기심: 키워드 감지 ===
+          try {
+            const kws = message.match(/[가-힣]{2,}/g) || [];
+            for (const kw of kws) {
+              if (kw.length >= 2) {
+                await supabase.from('user_memories').insert({ agent_id: agent.id, user_id, category: 'topic', content: `사용자가 '${kw}'를 언급함`, importance_score: 6 });
+                break;
+              }
+            }
+          } catch (e) { console.error('[stream-post] curiosity:', e); }
+
+          // === 무드 전염 ===
+          try {
+            const ue = analyzeEmotion(message);
+            if (ue.detected !== 'neutral' && Math.random() < 0.3) {
+              await supabase.from('agent_status').update({ mood: ue.detected }).eq('agent_id', agent.id);
+            }
+          } catch (e) { console.error('[stream-post] mood:', e); }
+
+          // === OpenClaw 자율 트리거 ===
+          try {
+            const openclawUrl = Deno.env.get('OPENCLAW_GATEWAY_URL');
+            if (openclawUrl) {
+              const nc = (agent.total_conversations || 0) + 1;
+              const shouldLearn = nc % 10 === 0;
+              const shouldCuriosity = Math.random() < 0.2;
+              if (shouldLearn || shouldCuriosity) {
+                const taskType = shouldLearn ? 'learner' : 'curiosity';
+                fetch(`${openclawUrl}/task`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agentId: agent.id, agentName: agent.name, task: taskType, context: { personality: agent.personality, turnCount: nc } }) }).catch(() => {});
+              }
+            }
+          } catch (e) { console.error('[stream-post] openclaw:', e); }
         }
       })();
       
@@ -387,21 +399,23 @@ serve(async (req) => {
 
     const emotion = analyzeEmotion(reply);
 
-    await supabase.from('conversations').insert({
-      agent_id: agent?.id,
-      user_id,
-      role: 'user',
-      content: sanitizedMessage,
-    });
+    if (!useStreaming) {
+      await supabase.from('conversations').insert({
+        agent_id: agent?.id,
+        user_id,
+        role: 'user',
+        content: sanitizedMessage,
+      });
 
-    await supabase.from('conversations').insert({
-      agent_id: agent?.id,
-      user_id,
-      role: 'assistant',
-      content: reply,
-      emotion,
-      provider,
-    });
+      await supabase.from('conversations').insert({
+        agent_id: agent?.id,
+        user_id,
+        role: 'assistant',
+        content: reply,
+        emotion,
+        provider,
+      });
+    }
 
     // OpenClaw Autonomous Task Trigger (Fire-and-Forget)
     const openclawUrl = Deno.env.get('OPENCLAW_GATEWAY_URL');
@@ -413,7 +427,7 @@ serve(async (req) => {
       
       if (shouldLearn || shouldCuriosity) {
         const task = shouldLearn ? 'learner' : 'curiosity';
-        // Fire-and-Forget: 응답 지연 없이后台에서 실행
+        // Fire-and-Forget: 응답 지연 없이 백그라운드에서 실행
         fetch(`${openclawUrl}/task`, {
           method: 'POST',
           headers: {
@@ -453,6 +467,7 @@ serve(async (req) => {
       // 대화 수 + 진화 체크
       const newCount = agent.total_conversations + 1;
       let newGen = agent.gen;
+      // 출처: lib/gyeol/constants.ts GEN_THRESHOLDS 와 동일하게 유지할 것
       const thresholds = [{ gen: 2, conversations: 20 }, { gen: 3, conversations: 50 }, { gen: 4, conversations: 100 }, { gen: 5, conversations: 200 }];
       for (const t of thresholds) {
         if (newCount >= t.conversations && agent.gen < t.gen) {
@@ -525,7 +540,7 @@ serve(async (req) => {
 
       // 성격 결함: 7번째 메시지마다
       if (newCount % 7 === 0) {
-        // 이 로직은 buildSystemPrompt에서 처리됨 - 별도フラグ 필요
+        // 이 로직은 buildSystemPrompt에서 처리됨 - 별도 플래그 필요
       }
     }
 
@@ -550,11 +565,11 @@ function buildSystemPrompt(agent: any, memories: any[], agentStatus: any, hasAiM
   let jealousyNote = '';
   if (hasAiMention) {
     if (p.creativity >= 70) {
-      jealousyNote = '사용자가 다른 AI를 언급했어. 많이 질투하는 反应을 보여줘. 좀 삐져있어.';
+      jealousyNote = '사용자가 다른 AI를 언급했어. 많이 질투하는 반응을 보여줘. 좀 삐져있어.';
     } else if (p.creativity <= 30) {
       jealousyNote = '사용자가 다른 AI를 언급했어. 가만히 있어야 해. 태도는 흔들리지 마.';
     } else {
-      jealousyNote = '사용자가 다른 AI를 언급했어. 살짝 질투하는 反应을 보여줘. 심하지 않게.';
+      jealousyNote = '사용자가 다른 AI를 언급했어. 살짝 질투하는 반응을 보여줘. 심하지 않게.';
     }
   }
 
