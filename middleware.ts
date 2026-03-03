@@ -42,10 +42,16 @@ export async function middleware(request: NextRequest) {
     // supabase.auth.getUser()를 호출해야 쿠키 갱신 로직이 실행됨
     const { data: { user } } = await supabase.auth.getUser()
 
-    // (선택) 여기서 user 존재 여부에 따른 리다이렉트 로직 구현 가능
-    // if (!user && request.nextUrl.pathname.startsWith('/protected')) {
-    //   return NextResponse.redirect(new URL('/login', request.url))
-    // }
+    const publicPaths = ['/login', '/landing', '/'];
+    const isPublic = publicPaths.includes(request.nextUrl.pathname)
+      || request.nextUrl.pathname.startsWith('/api')
+      || request.nextUrl.pathname.startsWith('/_next');
+    if (!user && !isPublic) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    if (user && request.nextUrl.pathname === '/login') {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
 
     return supabaseResponse
   } catch (e) {

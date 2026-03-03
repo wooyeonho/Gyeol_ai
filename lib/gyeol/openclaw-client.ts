@@ -63,7 +63,7 @@ export async function triggerOpenClawTask(task: OpenClawTask): Promise<OpenClawR
  * Fire-and-Forget TASK 실행 (응답 지연 없음)
  */
 export function triggerOpenClawTaskAsync(task: OpenClawTask): void {
-  // Detached promise - 에러가 발생해도メインスレッドに影響しない
+  // Detached promise - 에러가 발생해도 메인 스레드에 영향 없음
   triggerOpenClawTask(task).catch((err) => {
     console.error('[OpenClaw] Async task error:', err);
   });

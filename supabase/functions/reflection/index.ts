@@ -6,34 +6,12 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { callGroq } from '../_shared/ai.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Groq API 호출 함수
-async function callGroq(systemPrompt: string, message: string): Promise<string> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 
-      'Authorization': `Bearer ${Deno.env.get('GROQ_API_KEY')}`, 
-      'Content-Type': 'application/json' 
-    },
-    body: JSON.stringify({ 
-      model: 'llama-3.3-70b-versatile', 
-      messages: [
-        { role: 'system', content: systemPrompt }, 
-        { role: 'user', content: message }
-      ], 
-      max_tokens: 300, 
-      temperature: 0.8
-    }),
-  });
-  if (!response.ok) throw new Error(`Groq error: ${response.status}`);
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
-}
 
 // 벡터 임베딩 생성 (폴백)
 function fallbackEmbedding(text: string): number[] {
@@ -111,7 +89,7 @@ serve(async (req) => {
                            Math.abs(delta.creativity_delta || 0) + 
                            Math.abs(delta.energy_delta || 0) + 
                            Math.abs(delta.humor_delta || 0);
-        // 총 변화가 10 이상时才触发 Reflection
+        // 총 변화가 10 이상일 때만 Reflection 트리거
         if (totalChange < 10) {
           shouldReflect = false;
           console.log(`[reflection] ${agent.name}: personality 변화 미미 (${totalChange}), 스킵`);

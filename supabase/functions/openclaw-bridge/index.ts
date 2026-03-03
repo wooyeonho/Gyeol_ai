@@ -6,44 +6,12 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { callGroq, generateEmbedding } from '../_shared/ai.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Groq API 호출 함수
-async function callGroq(systemPrompt: string, message: string): Promise<string> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 
-      'Authorization': `Bearer ${Deno.env.get('GROQ_API_KEY')}`, 
-      'Content-Type': 'application/json' 
-    },
-    body: JSON.stringify({ 
-      model: 'llama-3.3-70b-versatile', 
-      messages: [
-        { role: 'system', content: systemPrompt }, 
-        { role: 'user', content: message }
-      ], 
-      max_tokens: 200, 
-      temperature: 0.9
-    }),
-  });
-  if (!response.ok) throw new Error(`Groq error: ${response.status}`);
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
-}
-
-// 벡터 임베딩 생성 (폴백)
-function fallbackEmbedding(text: string): number[] {
-  const vec = new Array(384).fill(0);
-  for (let i = 0; i < text.length; i++) {
-    vec[text.charCodeAt(i) % 384] += 1;
-  }
-  const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0)) || 1;
-  return vec.map(v => v / norm);
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -98,7 +66,7 @@ serve(async (req) => {
           const learned = await callGroq(learnPrompt, '공부해봐');
           
           // 학습 결과를 벡터 기억으로 저장
-          const embedding = fallbackEmbedding(learned);
+          const embedding = await generateEmbedding(learned);
           await supabase.from('memories').insert({
             user_id: agent.user_id,
             agent_id: agent.id,

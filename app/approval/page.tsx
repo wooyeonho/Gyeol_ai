@@ -39,7 +39,12 @@ export default function ApprovalPage() {
   
   async function handleApprove(id: string) {
     if (!supabase) return;
+    const item = approvals.find(a => a.id === id);
     await supabase.from('approval_queue').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', id);
+    if (item?.agent_id) {
+      if (item.change_type === 'visual') await supabase.from('agents').update({ visual_state: item.proposed_state }).eq('id', item.agent_id);
+      if (item.change_type === 'skill') await supabase.from('agents').update({ skills: item.proposed_state }).eq('id', item.agent_id);
+    }
     setApprovals(approvals.filter(a => a.id !== id));
   }
   

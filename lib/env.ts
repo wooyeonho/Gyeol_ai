@@ -39,4 +39,8 @@ function parseEnv() {
   return result.data;
 }
 
-export const env = parseEnv();
+let _env: Env | null = null;
+export function getEnv(): Env {
+  if (!_env) _env = parseEnv();
+  return _env;
+}

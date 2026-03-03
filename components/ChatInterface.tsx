@@ -33,6 +33,7 @@ export default function ChatInterface() {
     messages, 
     userId, 
     isLoading,
+    isThinking,
     addMessage,
     updateMessage,
     setIsThinking 
@@ -247,7 +248,7 @@ export default function ChatInterface() {
               </div>
             </div>
           ))}
-          {isLoading && (
+          {(isLoading || isThinking) && (
             <div className="flex justify-start">
               <div className="bg-white/10 px-4 py-2 rounded-2xl text-sm text-white/50 animate-pulse">
                 생각 중...

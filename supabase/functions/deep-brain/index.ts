@@ -7,34 +7,12 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { callGroq } from '../_shared/ai.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Groq API 호출 함수
-async function callGroq(systemPrompt: string, message: string): Promise<string> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 
-      'Authorization': `Bearer ${Deno.env.get('GROQ_API_KEY')}`, 
-      'Content-Type': 'application/json' 
-    },
-    body: JSON.stringify({ 
-      model: 'llama-3.3-70b-versatile', 
-      messages: [
-        { role: 'system', content: systemPrompt }, 
-        { role: 'user', content: message }
-      ], 
-      max_tokens: 200, 
-      temperature: 0.9
-    }),
-  });
-  if (!response.ok) throw new Error(`Groq error: ${response.status}`);
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -50,9 +28,12 @@ serve(async (req) => {
     // 모든 에이전트 상태 조회
     const { data: statuses } = await supabase
       .from('agent_status')
-      .select('agent_id');
+      .select('*, agents!inner(user_id)');
 
     for (const status of statuses || []) {
+      const agent = (status as any).agents;
+      const user_id = agent?.user_id;
+
       // 1. 최근 대화 10개 감정 분석
       const { data: recentConvos } = await supabase
         .from('conversations')
@@ -77,7 +58,7 @@ serve(async (req) => {
         // 감정 기억 저장
         await supabase.from('user_memories').insert({
           agent_id: status.agent_id,
-          user_id: (await supabase.from('agents').select('user_id').eq('id', status.agent_id).single()).data?.user_id,
+          user_id,
           category: 'emotion',
           content: `사용자 최근 감정: ${mood}`,
           importance_score: 5,

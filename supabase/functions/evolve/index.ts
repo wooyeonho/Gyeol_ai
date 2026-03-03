@@ -5,6 +5,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { callGroq } from '../_shared/ai.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,29 +16,6 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );
-
-// Groq API 호출 함수
-async function callGroq(systemPrompt: string, message: string): Promise<string> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 
-      'Authorization': `Bearer ${Deno.env.get('GROQ_API_KEY')}`, 
-      'Content-Type': 'application/json' 
-    },
-    body: JSON.stringify({ 
-      model: 'llama-3.3-70b-versatile', 
-      messages: [
-        { role: 'system', content: systemPrompt }, 
-        { role: 'user', content: message }
-      ], 
-      max_tokens: 200, 
-      temperature: 0.9
-    }),
-  });
-  if (!response.ok) throw new Error(`Groq error: ${response.status}`);
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
-}
 
 // HTTP 엔드포인트
 serve(async (req) => {
@@ -132,7 +110,7 @@ delta 범위: -8 ~ +8. 대부분 -3~+3이지만 강한 맥락이 있으면 크�
     
     // Safety: Delta 값에 극단적 변화 제한 (-5 ~ +5)
     const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
-    const clampDelta = (v: number) => clamp(v, -5, 5); // 단一次 변화 최대 5
+    const clampDelta = (v: number) => clamp(v, -5, 5); // 단 1회 변화 최대 5
     
     const warmthDelta = clampDelta(parsed.warmth_delta || 0);
     const logicDelta = clampDelta(parsed.logic_delta || 0);
@@ -178,6 +156,7 @@ export async function checkEvolution(userId: string): Promise<{ shouldEvolve: bo
 
   if (!agent) return { shouldEvolve: false, newGen: 1 };
 
+  // 출처: lib/gyeol/constants.ts GEN_THRESHOLDS 와 동일하게 유지할 것
   const thresholds = [
     { gen: 2, conversations: 20 },
     { gen: 3, conversations: 50 },
