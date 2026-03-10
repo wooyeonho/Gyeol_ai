@@ -34,7 +34,11 @@
     "charge": "충전",
     "chargeComingSoon": "충전 (준비 중)",
     "saved": "설정이 저장되었습니다!",
-    "checkoutSuccess": "결제가 완료되었습니다!"
+    "checkoutSuccess": "결제가 완료되었습니다!",
+    "invite": "친구 초대",
+    "inviteDesc": "초대 링크를 공유하고 보상을 받으세요",
+    "createInvite": "초대 링크 만들기",
+    "inviteCreated": "초대 링크가 복사되었습니다!"
   },
   "landing": {
     "tagline": "대화할수록 성장하고 진화하는 나만의 AI",

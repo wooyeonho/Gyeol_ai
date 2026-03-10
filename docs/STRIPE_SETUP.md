@@ -28,20 +28,10 @@ NEXT_PUBLIC_SITE_URL=https://your-domain.com
 
 ## 4. DB 마이그레이션
 
-Supabase SQL Editor에서 실행:
+Supabase Dashboard > SQL Editor에서 `supabase/migrations/` 폴더의 SQL 파일을 **순서대로** 실행:
 
-```sql
--- supabase/migrations/004_stripe_fields.sql 내용 실행
-ALTER TABLE profiles
-  ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT,
-  ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT,
-  ADD COLUMN IF NOT EXISTS stripe_subscription_status TEXT;
-
-CREATE TABLE IF NOT EXISTS stripe_webhook_events (
-  id TEXT PRIMARY KEY,
-  processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-```
+1. `004_stripe_fields.sql` - Stripe 결제 필드
+2. `005_invite_referral.sql` - 초대/리퍼럴 시스템
 
 ## 5. 로컬 Webhook 테스트
 

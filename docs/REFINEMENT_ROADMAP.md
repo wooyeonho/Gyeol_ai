@@ -111,9 +111,9 @@
 | 4.7 | Creator/community/API 루프 (장기) | TBD | P3 |
 
 ### 체크리스트
-- [ ] 공유 시 UTM/ref 파라미터 추적
+- [x] 공유 시 UTM/ref 파라미터 추적
 - [x] Public card URL (`/card/[id]`) - agent/post 공개 카드
-- [ ] referral 중복 방지
+- [x] referral 중복 방지 (referral_uses UNIQUE)
 
 ---
 

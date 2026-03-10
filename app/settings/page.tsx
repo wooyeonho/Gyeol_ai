@@ -24,6 +24,7 @@ function SettingsContent() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   useEffect(() => {
     const success = searchParams.get('success');
@@ -116,6 +117,26 @@ function SettingsContent() {
       alert(e instanceof Error ? e.message : '구독 관리 페이지를 열 수 없습니다.');
     } finally {
       setPortalLoading(false);
+    }
+  }
+
+  async function handleCreateInvite() {
+    setInviteLoading(true);
+    try {
+      const res = await fetch('/api/invite/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ max_uses: 5, reward_coins: 10 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      const url = data.invite_url || `${typeof window !== 'undefined' ? window.location.origin : ''}/login?ref=${data.code}`;
+      await navigator.clipboard.writeText(url);
+      alert(t('inviteCreated'));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '초대 링크를 만들 수 없습니다.');
+    } finally {
+      setInviteLoading(false);
     }
   }
   
@@ -212,6 +233,21 @@ function SettingsContent() {
                 </div>
               )}
             </div>
+          </div>
+        </section>
+        
+        {/* 초대 */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-4">{t('invite')}</h2>
+          <div className="p-4 bg-white/5 rounded-lg">
+            <p className="text-sm text-white/60 mb-3">{t('inviteDesc')}</p>
+            <button
+              onClick={handleCreateInvite}
+              disabled={inviteLoading}
+              className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+            >
+              {inviteLoading ? '...' : t('createInvite')}
+            </button>
           </div>
         </section>
         

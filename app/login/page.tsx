@@ -4,19 +4,33 @@
 
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+const REF_STORAGE_KEY = 'gyeol_ref_code';
+
+function LoginContent() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [refCode, setRefCode] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      sessionStorage.setItem(REF_STORAGE_KEY, ref);
+      setRefCode(ref);
+    } else {
+      setRefCode(sessionStorage.getItem(REF_STORAGE_KEY));
+    }
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +59,22 @@ export default function LoginPage() {
         }
       }
 
+      const ref = sessionStorage.getItem(REF_STORAGE_KEY);
+      if (ref) {
+        try {
+          const res = await fetch('/api/invite/apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: ref }),
+          });
+          if (res.ok) {
+            sessionStorage.removeItem(REF_STORAGE_KEY);
+          }
+        } catch {
+          // 무시
+        }
+      }
+
       router.push('/');
     } catch (err) {
       setError('알 수 없는 오류가 발생했습니다.');
@@ -58,6 +88,19 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await supabase.auth.signInAnonymously();
+      const ref = sessionStorage.getItem(REF_STORAGE_KEY);
+      if (ref) {
+        try {
+          await fetch('/api/invite/apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: ref }),
+          });
+          sessionStorage.removeItem(REF_STORAGE_KEY);
+        } catch {
+          // 무시
+        }
+      }
       router.push('/');
     } catch (err) {
       setError('게스트 로그인에 실패했습니다.');
@@ -125,6 +168,9 @@ export default function LoginPage() {
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-4xl font-bold mb-2">결</h1>
       <p className="text-white/60 mb-8">대화할수록 성장하고 진화하는 나만의 AI</p>
+      {refCode && (
+        <p className="mb-4 text-point/80 text-sm">초대 코드가 적용됩니다</p>
+      )}
 
       <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
         <input
@@ -170,5 +216,13 @@ export default function LoginPage() {
         비밀번호 찾기
       </button>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><div className="text-white/60">로딩 중...</div></div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

@@ -34,7 +34,11 @@
     "charge": "Charge",
     "chargeComingSoon": "Charge (Coming soon)",
     "saved": "Settings saved!",
-    "checkoutSuccess": "Payment completed!"
+    "checkoutSuccess": "Payment completed!",
+    "invite": "Invite friends",
+    "inviteDesc": "Share your invite link and earn rewards",
+    "createInvite": "Create invite link",
+    "inviteCreated": "Invite link copied!"
   },
   "landing": {
     "tagline": "Your AI that grows and evolves through conversation",
