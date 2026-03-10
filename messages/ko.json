@@ -33,6 +33,9 @@
     "coinsDesc": "스킨과 스킬을 구매할 수 있어요",
     "charge": "충전",
     "chargeComingSoon": "충전 (준비 중)",
+    "charge": "충전",
+    "chargePack": "{coins} 코인",
+    "chargeSuccess": "코인이 충전되었습니다!",
     "saved": "설정이 저장되었습니다!",
     "checkoutSuccess": "결제가 완료되었습니다!",
     "invite": "친구 초대",
@@ -88,5 +91,57 @@
   "activity": {
     "title": "결의 활동",
     "loading": "로딩 중..."
+  },
+  "market": {
+    "skinsTitle": "스킨 상점",
+    "skinsDesc": "결의 외형을 바꿔보세요",
+    "skillsTitle": "스킬 상점",
+    "skillsDesc": "결의 새로운 능력을 해제하세요",
+    "balance": "보유 코인",
+    "free": "무료",
+    "coins": "{price} 코인",
+    "insufficientCoins": "코인이 부족합니다!",
+    "buyFailed": "구매 실패",
+    "buyError": "구매 중 오류가 발생했습니다.",
+    "skinApplied": "스킨이 적용되었습니다!",
+    "skillAcquired": "스킬을 획득했습니다!",
+    "skins": {
+      "star": "별",
+      "starDesc": "밤하늘의 별",
+      "ocean": "바다",
+      "oceanDesc": "깊은 바다의 빛",
+      "flame": "불꽃",
+      "flameDesc": "타오르는 불꽃",
+      "forest": "숲",
+      "forestDesc": "깊은 숲의 빛",
+      "nebula": "성운",
+      "nebulaDesc": "우주의 성운",
+      "crystal": "크리스탈",
+      "crystalDesc": "투명한 결정"
+    },
+    "skills": {
+      "poet": "시인",
+      "poetDesc": "시를 쓸 수 있어요",
+      "musician": "음악가",
+      "musicianDesc": "멋진 음악을 들려줘요",
+      "storyteller": "이야기꾼",
+      "storytellerDesc": "흥미로운 이야기를 만들어요",
+      "analyst": "분석가",
+      "analystDesc": "데이터를 분석해줘요",
+      "companion": "동반자",
+      "companionDesc": "언제든 함께해요"
+    }
+  },
+  "social": {
+    "matchesTitle": "AI 매칭",
+    "matchesDesc": "다른 GYEOL들과 만나보세요",
+    "loading": "로딩 중...",
+    "comingSoon": "준비 중",
+    "comingSoonDesc": "소셜 기능은 현재 준비 중입니다. 가까운 시일에 만나보실 수 있습니다."
+  },
+  "errors": {
+    "unknown": "알 수 없는 오류가 발생했습니다.",
+    "network": "네트워크 오류가 발생했습니다.",
+    "auth": "인증이 필요합니다."
   }
 }

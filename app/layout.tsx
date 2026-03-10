@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: '결 - GYEOL',
   description: '대화할수록 성장하고 진화하는 나만의 AI',
   manifest: '/manifest.json',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://gyeol.vercel.app'),
   other: {
     'theme-color': '#000000',
     'apple-mobile-web-app-capable': 'yes',

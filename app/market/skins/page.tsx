@@ -6,19 +6,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { useGyeolStore } from '@/store/gyeol-store';
 import { createClient } from '@/lib/supabase/client';
 
 const SKINS = [
-  { id: 'star', name: '별', price: 0, color: '#F59E0B', desc: '밤하늘의 별' },
-  { id: 'ocean', name: '바다', price: 100, color: '#06B6D4', desc: '깊은 바다의 빛' },
-  { id: 'flame', name: '불꽃', price: 150, color: '#EF4444', desc: '타오르는 불꽃' },
-  { id: 'forest', name: '숲', price: 150, color: '#22C55E', desc: '깊은 숲의 빛' },
-  { id: 'nebula', name: '성운', price: 300, color: '#A855F7', desc: '우주의 성운' },
-  { id: 'crystal', name: '크리스탈', price: 500, color: '#EAB308', desc: '투명한 결정' },
+  { id: 'star', nameKey: 'star', price: 0, color: '#F59E0B', descKey: 'starDesc' },
+  { id: 'ocean', nameKey: 'ocean', price: 100, color: '#06B6D4', descKey: 'oceanDesc' },
+  { id: 'flame', nameKey: 'flame', price: 150, color: '#EF4444', descKey: 'flameDesc' },
+  { id: 'forest', nameKey: 'forest', price: 150, color: '#22C55E', descKey: 'forestDesc' },
+  { id: 'nebula', nameKey: 'nebula', price: 300, color: '#A855F7', descKey: 'nebulaDesc' },
+  { id: 'crystal', nameKey: 'crystal', price: 500, color: '#EAB308', descKey: 'crystalDesc' },
 ];
 
 export default function SkinMarketPage() {
+  const t = useTranslations('market');
+  const tSkins = useTranslations('market.skins');
   const { agent } = useGyeolStore();
   const supabase = createClient();
   const [buying, setBuying] = useState<string | null>(null);
@@ -35,7 +38,7 @@ export default function SkinMarketPage() {
     if (!supabase || !agent) return;
     const skin = SKINS.find(s => s.id === skinId);
     if (!skin || skin.price > coins) {
-      alert('코인이 부족합니다!');
+      alert(t('insufficientCoins'));
       return;
     }
     
@@ -49,7 +52,7 @@ export default function SkinMarketPage() {
       });
       
       if (coinError) {
-        alert(coinError.message || '구매 실패');
+        alert(coinError.message || t('buyFailed'));
         setBuying(null);
         return;
       }
@@ -66,9 +69,9 @@ export default function SkinMarketPage() {
       const { data: profile } = await supabase.from('profiles').select('coins').eq('id', agent.user_id).single();
       if (profile) setCoins(profile.coins);
       
-      alert('스킨이 적용되었습니다!');
+      alert(t('skinApplied'));
     } catch (err) {
-      alert('구매 중 오류가 발생했습니다.');
+      alert(t('buyError'));
     }
     setBuying(null);
   }
@@ -76,16 +79,14 @@ export default function SkinMarketPage() {
   return (
     <div className="min-h-screen bg-black text-white p-4">
       <div className="max-w-lg mx-auto">
-        <h1 className="text-2xl font-bold mb-2">스킨 상점</h1>
-        <p className="text-white/60 text-sm mb-6">결의 외형을 바꿔보세요</p>
+        <h1 className="text-2xl font-bold mb-2">{t('skinsTitle')}</h1>
+        <p className="text-white/60 text-sm mb-6">{t('skinsDesc')}</p>
         
-        {/* 코인 */}
         <div className="mb-6 p-3 bg-white/5 rounded-lg flex justify-between items-center">
-          <span className="text-white/60">보유 코인</span>
+          <span className="text-white/60">{t('balance')}</span>
           <span className="text-xl font-bold text-point">{coins}</span>
         </div>
         
-        {/* 스킨 목록 */}
         <div className="grid grid-cols-2 gap-4">
           {SKINS.map((skin) => (
             <div key={skin.id} className="p-4 bg-white/5 rounded-lg">
@@ -93,14 +94,14 @@ export default function SkinMarketPage() {
                 className="w-full h-20 rounded-lg mb-3"
                 style={{ backgroundColor: skin.color }}
               />
-              <h3 className="font-medium">{skin.name}</h3>
-              <p className="text-xs text-white/40 mb-3">{skin.desc}</p>
+              <h3 className="font-medium">{tSkins(skin.nameKey)}</h3>
+              <p className="text-xs text-white/40 mb-3">{tSkins(skin.descKey)}</p>
               <button
                 onClick={() => buySkin(skin.id)}
                 disabled={buying === skin.id}
                 className="w-full bg-point/20 hover:bg-point/40 text-point py-2 rounded-lg text-sm disabled:opacity-50"
               >
-                {skin.price === 0 ? '무료' : `${skin.price} 코인`}
+                {skin.price === 0 ? t('free') : t('coins', { price: skin.price })}
               </button>
             </div>
           ))}

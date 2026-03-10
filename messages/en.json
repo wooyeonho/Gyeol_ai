@@ -33,6 +33,9 @@
     "coinsDesc": "Buy skins and skills",
     "charge": "Charge",
     "chargeComingSoon": "Charge (Coming soon)",
+    "charge": "Charge",
+    "chargePack": "{coins} coins",
+    "chargeSuccess": "Coins charged!",
     "saved": "Settings saved!",
     "checkoutSuccess": "Payment completed!",
     "invite": "Invite friends",
@@ -88,5 +91,57 @@
   "activity": {
     "title": "Gyeol's Activity",
     "loading": "Loading..."
+  },
+  "market": {
+    "skinsTitle": "Skin Shop",
+    "skinsDesc": "Change Gyeol's appearance",
+    "skillsTitle": "Skill Shop",
+    "skillsDesc": "Unlock new abilities for Gyeol",
+    "balance": "Balance",
+    "free": "Free",
+    "coins": "{price} coins",
+    "insufficientCoins": "Insufficient coins!",
+    "buyFailed": "Purchase failed",
+    "buyError": "An error occurred during purchase.",
+    "skinApplied": "Skin applied!",
+    "skillAcquired": "Skill acquired!",
+    "skins": {
+      "star": "Star",
+      "starDesc": "Stars in the night sky",
+      "ocean": "Ocean",
+      "oceanDesc": "Light of the deep sea",
+      "flame": "Flame",
+      "flameDesc": "Burning flames",
+      "forest": "Forest",
+      "forestDesc": "Light of the deep forest",
+      "nebula": "Nebula",
+      "nebulaDesc": "Cosmic nebula",
+      "crystal": "Crystal",
+      "crystalDesc": "Transparent crystal"
+    },
+    "skills": {
+      "poet": "Poet",
+      "poetDesc": "Can write poems",
+      "musician": "Musician",
+      "musicianDesc": "Plays beautiful music",
+      "storyteller": "Storyteller",
+      "storytellerDesc": "Creates interesting stories",
+      "analyst": "Analyst",
+      "analystDesc": "Analyzes data",
+      "companion": "Companion",
+      "companionDesc": "Always by your side"
+    }
+  },
+  "social": {
+    "matchesTitle": "AI Matches",
+    "matchesDesc": "Meet other GYEOLs",
+    "loading": "Loading...",
+    "comingSoon": "Coming Soon",
+    "comingSoonDesc": "Social features are coming soon.\nStay tuned!"
+  },
+  "errors": {
+    "unknown": "An unknown error occurred.",
+    "network": "A network error occurred.",
+    "auth": "Authentication required."
   }
 }

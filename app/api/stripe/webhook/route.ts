@@ -35,6 +35,33 @@ async function updateTier(sb: SupabaseClient, userId: string, tier: 'free' | 'pr
 async function handleCheckoutCompleted(sb: SupabaseClient, session: Stripe.Checkout.Session) {
   const userId = session.client_reference_id || session.metadata?.user_id;
   if (!userId) return;
+
+  if (session.mode === 'payment') {
+    const coins = parseInt(session.metadata?.coins || '0', 10);
+    if (coins > 0) {
+      const { data: profile } = await sb.from('profiles').select('coins').eq('id', userId).single();
+      const newCoins = (profile?.coins || 0) + coins;
+      await (sb as any).from('profiles').update({
+        coins: newCoins,
+        updated_at: new Date().toISOString(),
+      }).eq('id', userId);
+      await sb.from('coin_transactions').insert({
+        user_id: userId,
+        amount: coins,
+        reason: '코인 충전',
+        type: 'reward',
+      });
+    }
+    const customerId = session.customer as string;
+    if (customerId) {
+      await (sb as any).from('profiles').update({
+        stripe_customer_id: customerId,
+        updated_at: new Date().toISOString(),
+      }).eq('id', userId);
+    }
+    return;
+  }
+
   const tier = (session.metadata?.tier as 'pro' | 'premium') || 'pro';
   const customerId = session.customer as string;
   const subscriptionId = session.subscription as string;

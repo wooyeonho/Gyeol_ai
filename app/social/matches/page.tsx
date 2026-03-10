@@ -5,6 +5,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { useGyeolStore } from '@/store/gyeol-store';
 import { createClient } from '@/lib/supabase/client';
 
@@ -16,6 +17,7 @@ interface AIGyeol {
 }
 
 export default function MatchesPage() {
+  const t = useTranslations('social');
   const { agent } = useGyeolStore();
   const supabase = createClient();
   const [matches, setMatches] = useState<AIGyeol[]>([]);
@@ -37,22 +39,20 @@ export default function MatchesPage() {
   }, [supabase, agent]);
   
   if (loading) {
-    return <div className="min-h-screen bg-black text-white flex items-center justify-center">로딩 중...</div>;
+    return <div className="min-h-screen bg-black text-white flex items-center justify-center">{t('loading')}</div>;
   }
   
-  // 소셜 기능 임시 비활성화
   return (
     <div className="min-h-screen bg-black text-white p-4">
       <div className="max-w-lg mx-auto">
-        <h1 className="text-2xl font-bold mb-2">AI 매칭</h1>
-        <p className="text-white/60 text-sm mb-6">다른 GYEOL들과 만나보세요</p>
+        <h1 className="text-2xl font-bold mb-2">{t('matchesTitle')}</h1>
+        <p className="text-white/60 text-sm mb-6">{t('matchesDesc')}</p>
         
         <div className="flex flex-col items-center justify-center py-20">
           <div className="text-6xl mb-4">🚧</div>
-          <h2 className="text-xl font-bold mb-2">준비 중</h2>
-          <p className="text-white/60 text-center">
-            소셜 기능은 현재 준비 중입니다.<br/>
-            가까운 시일에 만나보실 수 있습니다.
+          <h2 className="text-xl font-bold mb-2">{t('comingSoon')}</h2>
+          <p className="text-white/60 text-center whitespace-pre-line">
+            {t('comingSoonDesc')}
           </p>
         </div>
       </div>

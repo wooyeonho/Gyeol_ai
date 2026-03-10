@@ -6,6 +6,7 @@
 2. **Pro** 상품 생성 → Recurring 가격 설정 (월/년)
 3. **Premium** 상품 생성 → Recurring 가격 설정
 4. 각 Price의 ID 복사 (예: `price_xxxxx`)
+5. **코인 충전** (선택): One-time 결제용 Product 3개 (100/500/1000 코인)
 
 ## 2. 환경 변수
 
@@ -16,6 +17,9 @@ STRIPE_SECRET_KEY=sk_test_xxxxx
 STRIPE_WEBHOOK_SECRET=whsec_xxxxx
 STRIPE_PRICE_PRO=price_xxxxx
 STRIPE_PRICE_PREMIUM=price_xxxxx
+STRIPE_PRICE_COINS_100=price_xxxxx
+STRIPE_PRICE_COINS_500=price_xxxxx
+STRIPE_PRICE_COINS_1000=price_xxxxx
 NEXT_PUBLIC_SITE_URL=https://your-domain.com
 ```
 

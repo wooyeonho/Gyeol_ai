@@ -25,19 +25,25 @@ function SettingsContent() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [chargeLoading, setChargeLoading] = useState<string | null>(null);
 
   useEffect(() => {
     const success = searchParams.get('success');
+    const coinsSuccess = searchParams.get('coins_success');
     const canceled = searchParams.get('canceled');
-    if (success === 'true') {
-      setCheckoutMessage(t('checkoutSuccess'));
-      if (supabase && agent) {
-        supabase.from('profiles').select('tier').eq('id', agent.user_id).single()
-          .then(({ data }) => data && setTier(data.tier || 'free'));
-      }
+    if (success === 'true') setCheckoutMessage(t('checkoutSuccess'));
+    if (coinsSuccess === 'true') setCheckoutMessage(t('chargeSuccess'));
+    if ((success === 'true' || coinsSuccess === 'true') && supabase && agent) {
+      supabase.from('profiles').select('tier, coins').eq('id', agent.user_id).single()
+        .then(({ data }) => {
+          if (data) {
+            setTier(data.tier || 'free');
+            setCoins(data.coins ?? 0);
+          }
+        });
     }
     if (canceled === 'true') setCheckoutMessage(null);
-  }, [searchParams, supabase, agent]);
+  }, [searchParams, supabase, agent, t]);
 
   useEffect(() => {
     if (!supabase || !agent) {
@@ -117,6 +123,24 @@ function SettingsContent() {
       alert(e instanceof Error ? e.message : '구독 관리 페이지를 열 수 없습니다.');
     } finally {
       setPortalLoading(false);
+    }
+  }
+
+  async function handleChargeCoins(pack: '100' | '500' | '1000') {
+    setChargeLoading(pack);
+    try {
+      const res = await fetch('/api/stripe/checkout-coins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pack }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Checkout failed');
+      if (data.url) window.location.href = data.url;
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '결제를 시작할 수 없습니다.');
+    } finally {
+      setChargeLoading(null);
     }
   }
 
@@ -254,14 +278,25 @@ function SettingsContent() {
         {/* 코인 */}
         <section className="mb-8">
           <h2 className="text-lg font-semibold mb-4">{t('coins')}</h2>
-          <div className="p-4 bg-white/5 rounded-lg flex items-center justify-between">
-            <div>
-              <div className="font-medium text-point text-xl">{t('coinsCount', { count: coins })}</div>
-              <div className="text-sm text-white/60">{t('coinsDesc')}</div>
+          <div className="p-4 bg-white/5 rounded-lg">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="font-medium text-point text-xl">{t('coinsCount', { count: coins })}</div>
+                <div className="text-sm text-white/60">{t('coinsDesc')}</div>
+              </div>
             </div>
-            <button className="bg-point px-4 py-2 rounded-lg text-sm opacity-60 cursor-not-allowed" disabled title={t('chargeComingSoon')}>
-              {t('chargeComingSoon')}
-            </button>
+            <div className="flex gap-2 flex-wrap">
+              {(['100', '500', '1000'] as const).map((pack) => (
+                <button
+                  key={pack}
+                  onClick={() => handleChargeCoins(pack)}
+                  disabled={!!chargeLoading}
+                  className="bg-point/20 hover:bg-point/40 text-point px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                >
+                  {chargeLoading === pack ? '...' : t('chargePack', { coins: pack })}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
         

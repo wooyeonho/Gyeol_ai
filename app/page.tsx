@@ -11,13 +11,19 @@ import dynamic from 'next/dynamic';
 import { useGyeolStore } from '@/store/gyeol-store';
 import { createClient } from '@/lib/supabase/client';
 import ChatInterface from '@/components/ChatInterface';
-import { BirthSequence } from '@/components/BirthSequence';
 import { EnergyBar, IntimacyDisplay } from '@/components/EnergyBar';
-import { EvolutionCeremony } from '@/components/EvolutionCeremony';
 
 const VoidCanvas = dynamic(() => import('@/components/VoidCanvas'), { 
   ssr: false, 
   loading: () => <div className="animate-pulse bg-black w-full h-full" />
+});
+
+const BirthSequence = dynamic(() => import('@/components/BirthSequence').then(m => ({ default: m.BirthSequence })), {
+  loading: () => <div className="w-full h-screen bg-black flex items-center justify-center"><div className="text-white/50 animate-pulse">준비 중...</div></div>
+});
+
+const EvolutionCeremony = dynamic(() => import('@/components/EvolutionCeremony').then(m => ({ default: m.EvolutionCeremony })), {
+  ssr: false,
 });
 
 export default function Home() {

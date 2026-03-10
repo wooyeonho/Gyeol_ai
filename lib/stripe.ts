@@ -12,3 +12,8 @@ export const stripe = secretKey
 
 export const STRIPE_PRICE_PRO = process.env.STRIPE_PRICE_PRO || '';
 export const STRIPE_PRICE_PREMIUM = process.env.STRIPE_PRICE_PREMIUM || '';
+export const STRIPE_PRICE_COINS: Record<string, string> = {
+  '100': process.env.STRIPE_PRICE_COINS_100 || '',
+  '500': process.env.STRIPE_PRICE_COINS_500 || '',
+  '1000': process.env.STRIPE_PRICE_COINS_1000 || '',
+};
