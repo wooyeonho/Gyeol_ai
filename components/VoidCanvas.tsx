@@ -160,6 +160,15 @@ function GlowSphere({ visualState, mood, genScale = 1 }: { visualState: VisualSt
   );
 }
 
+const MOOD_COLORS: Record<string, string> = {
+  happy: '#ffd700',
+  sad: '#4a9eff',
+  angry: '#ff4444',
+  excited: '#ff69b4',
+  anxious: '#9b59b6',
+  neutral: '#FFFFFF',
+};
+
 export default function VoidCanvas({ agent, isThinking = false, isListening = false, mood = 'neutral' }: VoidCanvasProps) {
   const perfScale = usePerformanceMode();
   const visualState = agent?.visual_state || {
@@ -170,9 +179,21 @@ export default function VoidCanvas({ agent, isThinking = false, isListening = fa
     form: 'point',
   };
   
-  // 진화 단계별 크기
   const gen = agent?.gen || 1;
   const genScale = gen === 1 ? 1.0 : gen === 2 ? 1.2 : gen === 3 ? 1.5 : gen === 4 ? 1.8 : 2.2;
+  const color = visualState?.color_primary || MOOD_COLORS[mood || 'neutral'] || '#FFFFFF';
+  
+  // 저사양: 3D 대신 단순 그라데이션 (Three.js 로드 안 함)
+  if (perfScale <= 0.25) {
+    return (
+      <div 
+        className="fixed inset-0 -z-10 bg-black"
+        style={{
+          background: `radial-gradient(ellipse at center, ${color}20 0%, transparent 70%), #000`,
+        }}
+      />
+    );
+  }
   
   return (
     <div className="fixed inset-0 -z-10">

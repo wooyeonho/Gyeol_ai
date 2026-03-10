@@ -110,8 +110,34 @@ async function handleSubscriptionDeleted(sb: SupabaseClient, subscription: Strip
   await (sb as any).from('profiles').update({
     stripe_subscription_id: null,
     stripe_subscription_status: null,
+    payment_alert: null,
     updated_at: new Date().toISOString(),
   }).eq('id', userId);
+}
+
+async function handleInvoicePaymentFailed(sb: SupabaseClient, invoice: Stripe.Invoice) {
+  const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+  if (!customerId) return;
+  const { data: profile } = await sb.from('profiles').select('id').eq('stripe_customer_id', customerId).single();
+  if (!profile) return;
+  await (sb as any).from('profiles').update({
+    payment_alert: {
+      type: 'payment_failed',
+      message: '결제에 실패했습니다. 결제 수단을 확인해주세요.',
+      invoice_id: invoice.id,
+      created_at: new Date().toISOString(),
+    },
+    updated_at: new Date().toISOString(),
+  }).eq('id', profile.id);
+}
+
+async function handleInvoicePaid(sb: SupabaseClient, invoice: Stripe.Invoice) {
+  const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+  if (!customerId) return;
+  await (sb as any).from('profiles').update({
+    payment_alert: null,
+    updated_at: new Date().toISOString(),
+  }).eq('stripe_customer_id', customerId);
 }
 
 export async function POST(request: NextRequest) {
@@ -165,8 +191,13 @@ export async function POST(request: NextRequest) {
       case 'customer.subscription.deleted':
         await handleSubscriptionDeleted(supabase, event.data.object as Stripe.Subscription);
         break;
+      case 'invoice.payment_failed':
+        await handleInvoicePaymentFailed(supabase, event.data.object as Stripe.Invoice);
+        break;
+      case 'invoice.paid':
+        await handleInvoicePaid(supabase, event.data.object as Stripe.Invoice);
+        break;
       default:
-        // 다른 이벤트는 무시
         break;
     }
   } catch (err) {

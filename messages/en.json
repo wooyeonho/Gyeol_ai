@@ -36,6 +36,8 @@
     "charge": "Charge",
     "chargePack": "{coins} coins",
     "chargeSuccess": "Coins charged!",
+    "paymentFailed": "Payment failed. Please check your payment method.",
+    "paymentFailedCta": "Update payment method",
     "saved": "Settings saved!",
     "checkoutSuccess": "Payment completed!",
     "invite": "Invite friends",
@@ -142,6 +144,12 @@
   "errors": {
     "unknown": "An unknown error occurred.",
     "network": "A network error occurred.",
-    "auth": "Authentication required."
+    "auth": "Authentication required.",
+    "paymentNotConfigured": "Payment is not configured.",
+    "checkoutFailed": "Could not start checkout.",
+    "portalFailed": "Could not open billing portal.",
+    "inviteFailed": "Could not create invite link.",
+    "shareFailed": "Could not share.",
+    "shareCopied": "Link copied to clipboard"
   }
 }

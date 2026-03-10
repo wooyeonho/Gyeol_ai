@@ -27,7 +27,7 @@ NEXT_PUBLIC_SITE_URL=https://your-domain.com
 
 1. Stripe Dashboard → Developers → Webhooks → Add endpoint
 2. URL: `https://your-domain.com/api/stripe/webhook`
-3. 이벤트 선택: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
+3. 이벤트 선택: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`, `invoice.paid`
 4. Signing secret 복사 → `STRIPE_WEBHOOK_SECRET`
 
 ## 4. DB 마이그레이션

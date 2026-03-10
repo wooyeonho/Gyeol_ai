@@ -35,7 +35,7 @@
 - [x] Stripe Products/Prices 생성 (pro, premium) - env 변수로 설정
 - [x] Webhook 시그니처 검증
 - [x] idempotency (중복 이벤트 방지)
-- [ ] 테스트 모드 / 프로덕션 모드 분리
+- [x] 테스트 모드 / 프로덕션 모드 분리 (sk_test_* / sk_live_*)
 
 ---
 

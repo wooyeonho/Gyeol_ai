@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     // 코인 차감 시 잔액 음수 방지
     if (amount < 0 && currentCoins + amount < 0) {
       return NextResponse.json({ 
-        error: '코인이 부족합니다', 
+        error: 'Insufficient coins', 
         code: 'INSUFFICIENT_COINS' 
       }, { status: 400 });
     }

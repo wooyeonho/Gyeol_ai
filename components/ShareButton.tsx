@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { shareContent } from '@/lib/share';
 
 interface ShareButtonProps {
@@ -12,6 +13,7 @@ interface ShareButtonProps {
 }
 
 export function ShareButton({ url, title, text, className = '', children }: ShareButtonProps) {
+  const t = useTranslations('errors');
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   async function handleShare() {
@@ -19,12 +21,12 @@ export function ShareButton({ url, title, text, className = '', children }: Shar
     if (result.success) {
       setStatus('success');
       if (result.method === 'clipboard') {
-        alert('링크가 복사되었습니다');
+        alert(t('shareCopied'));
       }
       setTimeout(() => setStatus('idle'), 2000);
     } else if (result.error !== 'cancelled') {
       setStatus('error');
-      alert('공유할 수 없습니다');
+      alert(t('shareFailed'));
       setTimeout(() => setStatus('idle'), 2000);
     }
   }

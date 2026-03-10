@@ -26,6 +26,7 @@ function SettingsContent() {
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [chargeLoading, setChargeLoading] = useState<string | null>(null);
+  const [paymentAlert, setPaymentAlert] = useState<{ type: string; message: string } | null>(null);
 
   useEffect(() => {
     const success = searchParams.get('success');
@@ -51,12 +52,13 @@ function SettingsContent() {
       return;
     }
     
-    // 프로필에서 tier와 coins 조회
-    supabase.from('profiles').select('tier, coins').eq('id', agent.user_id).single()
+    // 프로필에서 tier, coins, payment_alert 조회
+    supabase.from('profiles').select('tier, coins, payment_alert').eq('id', agent.user_id).single()
       .then(({ data }) => {
         if (data) {
           setTier(data.tier || 'free');
           setCoins(data.coins || 0);
+          setPaymentAlert(data.payment_alert as { type: string; message: string } | null);
         }
         setLoading(false);
       });
@@ -106,7 +108,7 @@ function SettingsContent() {
       if (!res.ok) throw new Error(data.error || 'Checkout failed');
       if (data.url) window.location.href = data.url;
     } catch (e) {
-      alert(e instanceof Error ? e.message : '결제를 시작할 수 없습니다.');
+      alert(e instanceof Error ? e.message : tCommon('error'));
     } finally {
       setCheckoutLoading(null);
     }
@@ -120,7 +122,7 @@ function SettingsContent() {
       if (!res.ok) throw new Error(data.error || 'Portal failed');
       if (data.url) window.location.href = data.url;
     } catch (e) {
-      alert(e instanceof Error ? e.message : '구독 관리 페이지를 열 수 없습니다.');
+      alert(e instanceof Error ? e.message : tCommon('error'));
     } finally {
       setPortalLoading(false);
     }
@@ -138,7 +140,7 @@ function SettingsContent() {
       if (!res.ok) throw new Error(data.error || 'Checkout failed');
       if (data.url) window.location.href = data.url;
     } catch (e) {
-      alert(e instanceof Error ? e.message : '결제를 시작할 수 없습니다.');
+      alert(e instanceof Error ? e.message : tCommon('error'));
     } finally {
       setChargeLoading(null);
     }
@@ -158,7 +160,7 @@ function SettingsContent() {
       await navigator.clipboard.writeText(url);
       alert(t('inviteCreated'));
     } catch (e) {
-      alert(e instanceof Error ? e.message : '초대 링크를 만들 수 없습니다.');
+      alert(e instanceof Error ? e.message : tCommon('error'));
     } finally {
       setInviteLoading(false);
     }
@@ -171,6 +173,18 @@ function SettingsContent() {
           <h1 className="text-2xl font-bold">{t('title')}</h1>
           <LocaleSwitcher />
         </div>
+        {paymentAlert && (
+          <div className="mb-4 p-3 bg-amber-500/20 text-amber-400 rounded-lg text-sm flex items-center justify-between gap-3">
+            <span>{t('paymentFailed')}</span>
+            <button
+              onClick={handleManageBilling}
+              disabled={portalLoading}
+              className="shrink-0 bg-amber-500/30 hover:bg-amber-500/50 px-3 py-1 rounded text-xs"
+            >
+              {portalLoading ? '...' : t('paymentFailedCta')}
+            </button>
+          </div>
+        )}
         {checkoutMessage && (
           <div className="mb-4 p-3 bg-green-500/20 text-green-400 rounded-lg text-sm">
             {checkoutMessage}
