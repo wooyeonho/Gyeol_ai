@@ -42,24 +42,51 @@
   },
   "landing": {
     "tagline": "대화할수록 성장하고 진화하는 나만의 AI",
+    "taglineLine1": "대화할수록 성장하고",
+    "taglineLine2": "진화하는 나만의 AI",
     "start": "시작하기",
     "try": "체험하기"
   },
   "chat": {
     "thinking": "생각 중...",
     "busy": "바빠요?",
-    "leaving": "먼저 가 있을게요."
+    "leaving": "먼저 가 있을게요.",
+    "inputPlaceholder": "결에게 말 걸기...",
+    "send": "전송"
   },
   "moltbook": {
     "title": "MoltBook",
     "loading": "로딩 중...",
     "prompt": "오늘 무슨 생각을 했나요?",
-    "post": "올리기"
+    "post": "올리기",
+    "empty": "아직 글이 없어요. 첫 번째 글을 작성해보세요!",
+    "share": "공유",
+    "secret": "비밀",
+    "gyeol": "결"
   },
   "approval": {
     "title": "승인 요청",
     "empty": "대기 중인 요청이 없어요",
     "approve": "승인",
     "deny": "거절"
+  },
+  "login": {
+    "title": "결",
+    "tagline": "대화할수록 성장하고 진화하는 나만의 AI",
+    "email": "이메일",
+    "password": "비밀번호",
+    "start": "시작하기",
+    "guest": "체험하기",
+    "forgotPassword": "비밀번호 찾기",
+    "resetTitle": "비밀번호 찾기",
+    "resetDesc": "등록한 이메일을 입력하면 재설정 링크를 보내드려요",
+    "resetSent": "이메일을 확인해주세요!",
+    "backToLogin": "로그인으로 돌아가기",
+    "sendReset": "재설정 링크 보내기",
+    "refApplied": "초대 코드가 적용됩니다"
+  },
+  "activity": {
+    "title": "결의 활동",
+    "loading": "로딩 중..."
   }
 }

@@ -6,12 +6,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { useGyeolStore } from '@/store/gyeol-store';
 import { createClient } from '@/lib/supabase/client';
 import { MoltbookPost } from '@/lib/gyeol/types';
 import { ShareButton } from '@/components/ShareButton';
 
 export default function MoltBookPage() {
+  const t = useTranslations('moltbook');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
   const [posts, setPosts] = useState<MoltbookPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [newPost, setNewPost] = useState('');
@@ -71,19 +75,19 @@ export default function MoltBookPage() {
   }
   
   if (loading) {
-    return <div className="min-h-screen bg-black text-white flex items-center justify-center">로딩 중...</div>;
+    return <div className="min-h-screen bg-black text-white flex items-center justify-center">{tCommon('loading')}</div>;
   }
   
   return (
     <div className="min-h-screen bg-black text-white p-4">
       <div className="max-w-lg mx-auto">
-        <h1 className="text-2xl font-bold mb-6">MoltBook</h1>
+        <h1 className="text-2xl font-bold mb-6">{t('title')}</h1>
         
         {/* 내 글쓰기 */}
         {agent && (
           <div className="mb-6 p-4 bg-white/5 rounded-lg">
             <textarea
-              placeholder="오늘 무슨 생각을 했나요?"
+              placeholder={t('prompt')}
               className="w-full bg-transparent border-none text-white placeholder-white/40 resize-none"
               rows={3}
               value={newPost}
@@ -94,7 +98,7 @@ export default function MoltBookPage() {
               onClick={handlePost}
               disabled={!newPost.trim()}
             >
-              올리기
+              {t('post')}
             </button>
           </div>
         )}
@@ -103,7 +107,7 @@ export default function MoltBookPage() {
         <div className="space-y-4">
           {posts.length === 0 ? (
             <div className="text-center text-white/40 py-8">
-              아직 글이 없어요. 첫 번째 글을 작성해보세요!
+              {t('empty')}
             </div>
           ) : (
             posts.map((post) => {
@@ -113,10 +117,10 @@ export default function MoltBookPage() {
                 <div key={post.id} className={`p-4 bg-white/5 rounded-2xl border-l-4 ${moodColor} ${cardBg}`}>
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-8 h-8 rounded-full bg-point/30" />
-                    <span className="text-sm font-medium">결</span>
-                    {post.is_secret && <span className="text-xs bg-point/20 px-2 py-0.5 rounded">비밀</span>}
+                    <span className="text-sm font-medium">{t('gyeol')}</span>
+                    {post.is_secret && <span className="text-xs bg-point/20 px-2 py-0.5 rounded">{t('secret')}</span>}
                     <span className="text-xs text-white/40">
-                      {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                      {new Date(post.created_at).toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-US')}
                     </span>
                   </div>
                   <p className="text-white/80">{post.content}</p>
@@ -129,7 +133,7 @@ export default function MoltBookPage() {
                         title="MoltBook - 결 GYEOL"
                         className="text-white/60 hover:text-point transition-colors"
                       >
-                        ↗ 공유
+                        ↗ {t('share')}
                       </ShareButton>
                     )}
                   </div>

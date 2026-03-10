@@ -6,11 +6,14 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 
 const REF_STORAGE_KEY = 'gyeol_ref_code';
 
 function LoginContent() {
+  const t = useTranslations('login');
+  const tCommon = useTranslations('common');
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -77,7 +80,7 @@ function LoginContent() {
 
       router.push('/');
     } catch (err) {
-      setError('알 수 없는 오류가 발생했습니다.');
+      setError(tCommon('error'));
     }
 
     setLoading(false);
@@ -103,7 +106,7 @@ function LoginContent() {
       }
       router.push('/');
     } catch (err) {
-      setError('게스트 로그인에 실패했습니다.');
+      setError(tCommon('error'));
     }
     setLoading(false);
   }
@@ -123,7 +126,7 @@ function LoginContent() {
         setResetSent(true);
       }
     } catch {
-      setError('오류가 발생했습니다.');
+      setError(tCommon('error'));
     }
     setLoading(false);
   }
@@ -131,21 +134,21 @@ function LoginContent() {
   if (showReset) {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
-        <h1 className="text-4xl font-bold mb-2">비밀번호 찾기</h1>
-        <p className="text-white/60 mb-8">등록한 이메일을 입력하면 재설정 링크를 보내드려요</p>
+        <h1 className="text-4xl font-bold mb-2">{t('resetTitle')}</h1>
+        <p className="text-white/60 mb-8">{t('resetDesc')}</p>
 
         {resetSent ? (
           <div className="text-center">
-            <p className="text-green-400 mb-4">이메일을 확인해주세요!</p>
+            <p className="text-green-400 mb-4">{t('resetSent')}</p>
             <button onClick={() => { setShowReset(false); setResetSent(false); }} className="text-white/60 hover:text-white">
-              로그인으로 돌아가기
+              {t('backToLogin')}
             </button>
           </div>
         ) : (
           <form onSubmit={handleResetPassword} className="w-full max-w-xs space-y-4">
             <input
               type="email"
-              placeholder="이메일"
+              placeholder={t('email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-point"
@@ -153,10 +156,10 @@ function LoginContent() {
             />
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button type="submit" disabled={loading} className="w-full bg-point py-3 rounded-full font-medium disabled:opacity-50">
-              {loading ? '...' : '재설정 링크 보내기'}
+              {loading ? '...' : t('sendReset')}
             </button>
             <button type="button" onClick={() => setShowReset(false)} className="w-full text-white/60 py-2 text-sm">
-              로그인으로 돌아가기
+              {t('backToLogin')}
             </button>
           </form>
         )}
@@ -166,16 +169,16 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
-      <h1 className="text-4xl font-bold mb-2">결</h1>
-      <p className="text-white/60 mb-8">대화할수록 성장하고 진화하는 나만의 AI</p>
+      <h1 className="text-4xl font-bold mb-2">{t('title')}</h1>
+      <p className="text-white/60 mb-8">{t('tagline')}</p>
       {refCode && (
-        <p className="mb-4 text-point/80 text-sm">초대 코드가 적용됩니다</p>
+        <p className="mb-4 text-point/80 text-sm">{t('refApplied')}</p>
       )}
 
       <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
         <input
           type="email"
-          placeholder="이메일"
+          placeholder={t('email')}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-point"
@@ -183,7 +186,7 @@ function LoginContent() {
         />
         <input
           type="password"
-          placeholder="비밀번호"
+          placeholder={t('password')}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-point"
@@ -197,7 +200,7 @@ function LoginContent() {
           disabled={loading}
           className="w-full bg-point py-3 rounded-full font-medium disabled:opacity-50"
         >
-          {loading ? '...' : '시작하기'}
+          {loading ? '...' : t('start')}
         </button>
       </form>
 
@@ -206,14 +209,14 @@ function LoginContent() {
         disabled={loading}
         className="mt-6 text-white/40 hover:text-white/60 text-sm disabled:opacity-50"
       >
-        체험하기
+        {t('guest')}
       </button>
 
       <button
         onClick={() => setShowReset(true)}
         className="mt-4 text-white/30 hover:text-white/50 text-xs"
       >
-        비밀번호 찾기
+        {t('forgotPassword')}
       </button>
     </div>
   );
@@ -221,7 +224,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><div className="text-white/60">로딩 중...</div></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><div className="text-white/60">Loading...</div></div>}>
       <LoginContent />
     </Suspense>
   );

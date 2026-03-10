@@ -5,6 +5,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { useGyeolStore } from '@/store/gyeol-store';
 import { createClient } from '@/lib/supabase/client';
 
@@ -28,6 +29,7 @@ export default function ChatInterface() {
   const silence30MinRef = useRef<NodeJS.Timeout | null>(null);
   const supabase = createClient();
   
+  const t = useTranslations('chat');
   const { 
     agent, 
     messages, 
@@ -55,7 +57,7 @@ export default function ChatInterface() {
           agent_id: agent.id,
           user_id: userId,
           role: 'assistant' as const,
-          content: '바빠요?',
+          content: t('busy'),
           created_at: new Date().toISOString(),
         };
         addMessage(autoMsg);
@@ -70,7 +72,7 @@ export default function ChatInterface() {
           agent_id: agent.id,
           user_id: userId,
           role: 'assistant' as const,
-          content: '먼저 가 있을게요.',
+          content: t('leaving'),
           created_at: new Date().toISOString(),
         };
         addMessage(autoMsg);
@@ -86,7 +88,7 @@ export default function ChatInterface() {
       if (silence5MinRef.current) clearTimeout(silence5MinRef.current);
       if (silence30MinRef.current) clearTimeout(silence30MinRef.current);
     };
-  }, [messages, agent, supabase, userId, addMessage]);
+  }, [messages, agent, supabase, userId, addMessage, t]);
   
   // 메시지 전송
   const sendMessage = async () => {
@@ -251,7 +253,7 @@ export default function ChatInterface() {
           {(isLoading || isThinking) && (
             <div className="flex justify-start">
               <div className="bg-white/10 px-4 py-2 rounded-2xl text-sm text-white/50 animate-pulse">
-                생각 중...
+                {t('thinking')}
               </div>
             </div>
           )}
@@ -265,7 +267,7 @@ export default function ChatInterface() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="결에게 말 걸기..."
+            placeholder={t('inputPlaceholder')}
             className="flex-1 bg-white/10 border border-white/20 rounded-full px-4 py-3 text-white placeholder-white/40 focus:border-point/50"
             disabled={isSending}
           />
@@ -274,7 +276,7 @@ export default function ChatInterface() {
             disabled={!input.trim() || isSending}
             className="bg-point hover:bg-point/80 disabled:opacity-50 text-white px-6 py-3 rounded-full font-medium transition-colors"
           >
-            전송
+            {t('send')}
           </button>
         </div>
       </div>

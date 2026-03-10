@@ -44,3 +44,13 @@ img, video {
   background-color: var(--point);
   color: white;
 }
+
+/* 모바일 safe-area (노치, 홈 인디케이터) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pb-safe-nav {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 4rem);
+  }
+}

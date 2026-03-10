@@ -48,12 +48,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Code generation failed' }, { status: 500 });
     }
 
-    await admin.from('invite_codes').insert({
+    const { error: insertErr } = await admin.from('invite_codes').insert({
       code,
       inviter_id: user.id,
       max_uses: maxUses,
       reward_coins: rewardCoins,
+      inviter_reward_coins: 5,
     });
+    if (insertErr) {
+      await admin.from('invite_codes').insert({
+        code,
+        inviter_id: user.id,
+        max_uses: maxUses,
+        reward_coins: rewardCoins,
+      });
+    }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const inviteUrl = `${siteUrl}/login?ref=${code}`;

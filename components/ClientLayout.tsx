@@ -7,7 +7,9 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <GuestBanner />
-      {children}
+      <div className="pb-20 min-h-screen md:pb-20">
+        {children}
+      </div>
       <Navigation />
     </>
   );

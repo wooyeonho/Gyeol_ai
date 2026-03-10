@@ -6,11 +6,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { useGyeolStore } from '@/store/gyeol-store';
 import { createClient } from '@/lib/supabase/client';
 import { ApprovalRequest } from '@/lib/gyeol/types';
 
 export default function ApprovalPage() {
+  const t = useTranslations('approval');
+  const tCommon = useTranslations('common');
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const { agent } = useGyeolStore();
@@ -86,17 +89,17 @@ export default function ApprovalPage() {
   }
   
   if (loading) {
-    return <div className="min-h-screen bg-black text-white flex items-center justify-center">로딩 중...</div>;
+    return <div className="min-h-screen bg-black text-white flex items-center justify-center">{tCommon('loading')}</div>;
   }
   
   return (
     <div className="min-h-screen bg-black text-white p-4">
       <div className="max-w-lg mx-auto">
-        <h1 className="text-2xl font-bold mb-6">승인 요청</h1>
+        <h1 className="text-2xl font-bold mb-6">{t('title')}</h1>
         
         {approvals.length === 0 ? (
           <div className="text-center text-white/40 py-8">
-            대기 중인 요청이 없어요
+            {t('empty')}
           </div>
         ) : (
           <div className="space-y-4">
@@ -113,13 +116,13 @@ export default function ApprovalPage() {
                     onClick={() => handleApprove(approval.id)}
                     className="flex-1 bg-green-600 py-2 rounded-lg text-sm"
                   >
-                    승인
+                    {t('approve')}
                   </button>
                   <button
                     onClick={() => handleDeny(approval.id)}
                     className="flex-1 bg-red-600 py-2 rounded-lg text-sm"
                   >
-                    거절
+                    {t('deny')}
                   </button>
                 </div>
               </div>

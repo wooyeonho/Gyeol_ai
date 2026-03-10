@@ -76,6 +76,19 @@ export async function POST(request: NextRequest) {
       type: 'reward',
     });
 
+    const inviterReward = Number((invite as any).inviter_reward_coins) || 5;
+    if (inviterReward > 0) {
+      const { data: inviterProfile } = await admin.from('profiles').select('coins').eq('id', invite.inviter_id).single();
+      const inviterNewCoins = (inviterProfile?.coins || 0) + inviterReward;
+      await admin.from('profiles').update({ coins: inviterNewCoins, updated_at: new Date().toISOString() }).eq('id', invite.inviter_id);
+      await admin.from('coin_transactions').insert({
+        user_id: invite.inviter_id,
+        amount: inviterReward,
+        reason: '친구 초대 보상',
+        type: 'reward',
+      });
+    }
+
     return NextResponse.json({ success: true, reward_coins: invite.reward_coins, new_balance: newCoins });
   } catch (error) {
     console.error('Invite apply error:', error);

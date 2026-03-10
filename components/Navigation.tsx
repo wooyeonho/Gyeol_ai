@@ -35,7 +35,7 @@ export function Navigation() {
   }
   
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-lg border-t border-white/10">
+    <nav className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-lg border-t border-white/10 pb-safe">
       <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href || 

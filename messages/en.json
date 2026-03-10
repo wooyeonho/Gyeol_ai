@@ -42,24 +42,51 @@
   },
   "landing": {
     "tagline": "Your AI that grows and evolves through conversation",
+    "taglineLine1": "Your AI that grows",
+    "taglineLine2": "and evolves through conversation",
     "start": "Get Started",
     "try": "Try it"
   },
   "chat": {
     "thinking": "Thinking...",
     "busy": "Busy?",
-    "leaving": "I'll be here when you're back."
+    "leaving": "I'll be here when you're back.",
+    "inputPlaceholder": "Message Gyeol...",
+    "send": "Send"
   },
   "moltbook": {
     "title": "MoltBook",
     "loading": "Loading...",
     "prompt": "What's on your mind today?",
-    "post": "Post"
+    "post": "Post",
+    "empty": "No posts yet. Be the first to post!",
+    "share": "Share",
+    "secret": "Secret",
+    "gyeol": "Gyeol"
   },
   "approval": {
     "title": "Approval Requests",
     "empty": "No pending requests",
     "approve": "Approve",
     "deny": "Deny"
+  },
+  "login": {
+    "title": "Gyeol",
+    "tagline": "Your AI that grows and evolves through conversation",
+    "email": "Email",
+    "password": "Password",
+    "start": "Get Started",
+    "guest": "Try it",
+    "forgotPassword": "Forgot password",
+    "resetTitle": "Reset Password",
+    "resetDesc": "Enter your email to receive a reset link",
+    "resetSent": "Check your email!",
+    "backToLogin": "Back to login",
+    "sendReset": "Send reset link",
+    "refApplied": "Invite code will be applied"
+  },
+  "activity": {
+    "title": "Gyeol's Activity",
+    "loading": "Loading..."
   }
 }
