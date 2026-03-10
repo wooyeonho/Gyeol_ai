@@ -45,16 +45,30 @@ export default function ApprovalPage() {
     if (!approval) return;
     
     try {
-      // change_type에 따라 실제 에이전트 정보 업데이트
+      const getVal = (): string | undefined => {
+        if (approval.new_value) return approval.new_value;
+        const ps = approval.proposed_state;
+        if (typeof ps === 'string') return ps;
+        if (ps && typeof ps === 'object') {
+          if (approval.change_type === 'name' && 'name' in ps) return String(ps.name);
+          if (approval.change_type === 'personality' && 'personality' in ps) return JSON.stringify(ps.personality);
+          if (approval.change_type === 'mood' && 'mood' in ps) return String(ps.mood);
+          if (approval.change_type === 'condition' && 'condition' in ps) return String(ps.condition);
+          return JSON.stringify(ps);
+        }
+        return undefined;
+      };
+      const val = getVal();
+      if (!val) return;
       if (approval.change_type === 'name') {
-        await supabase.from('agents').update({ name: approval.new_value }).eq('id', agent.id);
+        await supabase.from('agents').update({ name: val }).eq('id', agent.id);
       } else if (approval.change_type === 'personality') {
-        const newPersonality = JSON.parse(approval.new_value);
+        const newPersonality = JSON.parse(val);
         await supabase.from('agents').update({ personality: newPersonality }).eq('id', agent.id);
       } else if (approval.change_type === 'mood') {
-        await supabase.from('agent_status').update({ mood: approval.new_value }).eq('agent_id', agent.id);
+        await supabase.from('agent_status').update({ mood: val }).eq('agent_id', agent.id);
       } else if (approval.change_type === 'condition') {
-        await supabase.from('agent_status').update({ condition: approval.new_value }).eq('agent_id', agent.id);
+        await supabase.from('agent_status').update({ condition: val }).eq('agent_id', agent.id);
       }
       
       // 상태 업데이트

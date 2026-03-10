@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { useGyeolStore } from '@/store/gyeol-store';
 import { createClient } from '@/lib/supabase/client';
 import { MoltbookPost } from '@/lib/gyeol/types';
+import { ShareButton } from '@/components/ShareButton';
 
 export default function MoltBookPage() {
   const [posts, setPosts] = useState<MoltbookPost[]>([]);
@@ -119,8 +120,18 @@ export default function MoltBookPage() {
                     </span>
                   </div>
                   <p className="text-white/80">{post.content}</p>
-                  <div className="mt-2 flex items-center gap-4 text-xs text-white/40">
+                  <div className="mt-2 flex items-center justify-between text-xs text-white/40">
                     <span>❤️ {post.likes_count}</span>
+                    {!post.is_secret && (
+                      <ShareButton
+                        url={`/card/${post.id}`}
+                        text={post.content?.slice(0, 80)}
+                        title="MoltBook - 결 GYEOL"
+                        className="text-white/60 hover:text-point transition-colors"
+                      >
+                        ↗ 공유
+                      </ShareButton>
+                    )}
                   </div>
                 </div>
               );

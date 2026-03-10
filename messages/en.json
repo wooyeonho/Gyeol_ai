@@ -1,0 +1,61 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "error": "An error occurred"
+  },
+  "nav": {
+    "home": "Home",
+    "activity": "Activity",
+    "feed": "Feed",
+    "skins": "Skins",
+    "settings": "Settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "gyeolInfo": "Gyeol Info",
+    "name": "Name",
+    "gen": "Gen",
+    "conversations": "Conversations",
+    "personality": "Personality",
+    "membership": "Membership",
+    "tierFree": "Free",
+    "tierPro": "Pro",
+    "tierPremium": "Premium",
+    "tierLimitFree": "20 chats per day",
+    "tierLimitPaid": "Unlimited chats",
+    "upgrade": "Upgrade",
+    "manageSubscription": "Manage subscription",
+    "coins": "Coins",
+    "coinsCount": "{count} coins",
+    "coinsDesc": "Buy skins and skills",
+    "charge": "Charge",
+    "chargeComingSoon": "Charge (Coming soon)",
+    "saved": "Settings saved!",
+    "checkoutSuccess": "Payment completed!"
+  },
+  "landing": {
+    "tagline": "Your AI that grows and evolves through conversation",
+    "start": "Get Started",
+    "try": "Try it"
+  },
+  "chat": {
+    "thinking": "Thinking...",
+    "busy": "Busy?",
+    "leaving": "I'll be here when you're back."
+  },
+  "moltbook": {
+    "title": "MoltBook",
+    "loading": "Loading...",
+    "prompt": "What's on your mind today?",
+    "post": "Post"
+  },
+  "approval": {
+    "title": "Approval Requests",
+    "empty": "No pending requests",
+    "approve": "Approve",
+    "deny": "Deny"
+  }
+}

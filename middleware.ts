@@ -1,17 +1,20 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+import createIntlMiddleware from 'next-intl/middleware';
+import { createServerClient } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
+import { routing } from './i18n/routing';
+
+const intlMiddleware = createIntlMiddleware(routing);
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  const intlResponse = intlMiddleware(request);
+  let supabaseResponse = intlResponse || NextResponse.next({ request });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase environment variables in middleware')
-    return supabaseResponse
+    console.error('Missing Supabase environment variables in middleware');
+    return intlResponse || supabaseResponse;
   }
 
   try {
@@ -24,15 +27,11 @@ export async function middleware(request: NextRequest) {
             return request.cookies.getAll()
           },
           setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              request.cookies.set(name, value)
-            )
-            supabaseResponse = NextResponse.next({
-              request,
-            })
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+            supabaseResponse = NextResponse.next({ request });
             cookiesToSet.forEach(({ name, value, options }) =>
               supabaseResponse.cookies.set(name, value, options)
-            )
+            );
           },
         },
       }
@@ -43,21 +42,24 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     // 리다이렉트 로직 활성화
-    const publicRoutes = ['/login', '/landing', '/api'];
+    const publicRoutes = ['/login', '/landing', '/api', '/card'];
     const isPublicRoute = publicRoutes.some(r => request.nextUrl.pathname.startsWith(r));
 
     if (!user && !isPublicRoute) {
-      // 메인 페이지(/)는 허용 (익명 로그인 자동 처리)
       if (request.nextUrl.pathname !== '/') {
-        return NextResponse.redirect(new URL('/login', request.url));
+        const redirect = NextResponse.redirect(new URL('/login', request.url));
+        supabaseResponse.cookies.getAll().forEach((c) => redirect.cookies.set(c.name, c.value));
+        return redirect;
       }
     }
 
     if (user && request.nextUrl.pathname === '/login') {
-      return NextResponse.redirect(new URL('/', request.url));
+      const redirect = NextResponse.redirect(new URL('/', request.url));
+      supabaseResponse.cookies.getAll().forEach((c) => redirect.cookies.set(c.name, c.value));
+      return redirect;
     }
 
-    return supabaseResponse
+    return supabaseResponse;
   } catch (e) {
     console.error('Middleware error:', e)
     // 에러 발생 시 크래시 내지 말고 그냥 통과시킬 것 (Next.js 15 제약 우회)

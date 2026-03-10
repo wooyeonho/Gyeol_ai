@@ -1,0 +1,61 @@
+{
+  "common": {
+    "loading": "로딩 중...",
+    "save": "저장하기",
+    "cancel": "취소",
+    "confirm": "확인",
+    "error": "오류가 발생했습니다"
+  },
+  "nav": {
+    "home": "홈",
+    "activity": "활동",
+    "feed": "피드",
+    "skins": "스킨",
+    "settings": "설정"
+  },
+  "settings": {
+    "title": "설정",
+    "gyeolInfo": "결 정보",
+    "name": "이름",
+    "gen": "Gen",
+    "conversations": "대화 수",
+    "personality": "성격",
+    "membership": "멤버십",
+    "tierFree": "무료",
+    "tierPro": "Pro",
+    "tierPremium": "Premium",
+    "tierLimitFree": "하루 20회 대화",
+    "tierLimitPaid": "무제한 대화",
+    "upgrade": "업그레이드",
+    "manageSubscription": "구독 관리",
+    "coins": "코인",
+    "coinsCount": "{count} 코인",
+    "coinsDesc": "스킨과 스킬을 구매할 수 있어요",
+    "charge": "충전",
+    "chargeComingSoon": "충전 (준비 중)",
+    "saved": "설정이 저장되었습니다!",
+    "checkoutSuccess": "결제가 완료되었습니다!"
+  },
+  "landing": {
+    "tagline": "대화할수록 성장하고 진화하는 나만의 AI",
+    "start": "시작하기",
+    "try": "체험하기"
+  },
+  "chat": {
+    "thinking": "생각 중...",
+    "busy": "바빠요?",
+    "leaving": "먼저 가 있을게요."
+  },
+  "moltbook": {
+    "title": "MoltBook",
+    "loading": "로딩 중...",
+    "prompt": "오늘 무슨 생각을 했나요?",
+    "post": "올리기"
+  },
+  "approval": {
+    "title": "승인 요청",
+    "empty": "대기 중인 요청이 없어요",
+    "approve": "승인",
+    "deny": "거절"
+  }
+}

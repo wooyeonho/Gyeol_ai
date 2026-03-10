@@ -5,12 +5,26 @@
 
 'use client';
 
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Points, PointMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 import { Agent, VisualState } from '@/lib/gyeol/types';
 import { PERSONALITY_COLORS } from '@/lib/gyeol/constants';
+
+function usePerformanceMode() {
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const cores = navigator.hardwareConcurrency || 4;
+    const memory = (navigator as any).deviceMemory || 8;
+    if (reducedMotion) setScale(0.2);
+    else if (cores <= 2 || memory <= 4) setScale(0.5);
+    else if (cores <= 4) setScale(0.75);
+  }, []);
+  return scale;
+}
 
 interface VoidCanvasProps {
   agent: Agent | null;
@@ -19,16 +33,17 @@ interface VoidCanvasProps {
   mood?: string;
 }
 
-function ParticleSystem({ visualState, isThinking, isListening, mood, genScale = 1 }: { 
+function ParticleSystem({ visualState, isThinking, isListening, mood, genScale = 1, perfScale = 1 }: { 
   visualState: VisualState; 
   isThinking?: boolean;
   isListening?: boolean;
   mood?: string;
   genScale?: number;
+  perfScale?: number;
 }) {
   const pointsRef = useRef<THREE.Points>(null);
   
-  const particleCount = (visualState?.particle_count || 10) * genScale;
+  const particleCount = Math.max(5, Math.floor((visualState?.particle_count || 10) * genScale * perfScale));
   const glowIntensity = visualState?.glow_intensity || 0.3;
   
   // mood별 색상
@@ -80,32 +95,20 @@ function ParticleSystem({ visualState, isThinking, isListening, mood, genScale =
     return pos;
   }, [particleCount, visualState?.form]);
   
-  // 애니메이션
+  // 애니메이션 (prefers-reduced-motion 시 느리게)
   useFrame((state) => {
     if (!pointsRef.current) return;
-    
     const time = state.clock.getElapsedTime();
-    
-    // 부드러운 움직임
-    pointsRef.current.rotation.y = time * 0.1;
-    pointsRef.current.rotation.x = Math.sin(time * 0.2) * 0.1;
-    
-    // 생각 중일 때 더 빠르게 움직임
-    // mood별 속도: excited=빠름, sad=느림
+    const motionScale = perfScale < 0.5 ? 0.1 : 1;
+    pointsRef.current.rotation.y = time * 0.1 * motionScale;
+    pointsRef.current.rotation.x = Math.sin(time * 0.2) * 0.1 * motionScale;
     const moodSpeed: Record<string, number> = {
-      happy: 1.2,
-      excited: 1.5,
-      neutral: 1,
-      anxious: 0.8,
-      sad: 0.6,
-      angry: 1.3,
+      happy: 1.2, excited: 1.5, neutral: 1, anxious: 0.8, sad: 0.6, angry: 1.3,
     };
-    const speed = isThinking ? 2 : isListening ? 3 : (moodSpeed[mood || 'neutral'] || 1);
+    const speed = (isThinking ? 2 : isListening ? 3 : (moodSpeed[mood || 'neutral'] || 1)) * motionScale;
     pointsRef.current.rotation.y += 0.001 * speed;
-    
-    // 빛 intensity 조절
     const material = pointsRef.current.material as THREE.PointsMaterial;
-    material.opacity = glowIntensity + Math.sin(time * 2) * 0.1;
+    material.opacity = glowIntensity + (perfScale >= 0.5 ? Math.sin(time * 2) * 0.1 : 0);
   });
   
   return (
@@ -158,6 +161,7 @@ function GlowSphere({ visualState, mood, genScale = 1 }: { visualState: VisualSt
 }
 
 export default function VoidCanvas({ agent, isThinking = false, isListening = false, mood = 'neutral' }: VoidCanvasProps) {
+  const perfScale = usePerformanceMode();
   const visualState = agent?.visual_state || {
     color_primary: '#FFFFFF',
     color_secondary: '#4F46E5',
@@ -185,6 +189,7 @@ export default function VoidCanvas({ agent, isThinking = false, isListening = fa
           isListening={isListening}
           mood={mood}
           genScale={genScale}
+          perfScale={perfScale}
         />
         
         {/* 조명 */}

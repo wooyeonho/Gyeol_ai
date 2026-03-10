@@ -33,6 +33,7 @@ export default function ChatInterface() {
     messages, 
     userId, 
     isLoading,
+    isThinking,
     addMessage,
     updateMessage,
     setIsThinking 

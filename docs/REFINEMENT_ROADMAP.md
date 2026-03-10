@@ -32,9 +32,9 @@
 | 1.7 | 설정 페이지 "업그레이드" / "충전" 버튼 실제 연결 | 0.5d | P0 |
 
 ### 체크리스트
-- [ ] Stripe Products/Prices 생성 (pro, premium)
-- [ ] Webhook 시그니처 검증
-- [ ] idempotency (중복 이벤트 방지)
+- [x] Stripe Products/Prices 생성 (pro, premium) - env 변수로 설정
+- [x] Webhook 시그니처 검증
+- [x] idempotency (중복 이벤트 방지)
 - [ ] 테스트 모드 / 프로덕션 모드 분리
 
 ---
@@ -59,9 +59,9 @@
 | 2.7 | 공개/운영/실험 페이지 톤 통일 가이드 | 0.5d | P2 |
 
 ### 체크리스트
-- [ ] locale 전환 UI (설정 또는 헤더)
-- [ ] URL 기반 locale (`/ko/...`, `/en/...`) 또는 쿠키
-- [ ] 날짜/숫자 포맷 locale 연동
+- [x] locale 전환 UI (설정 또는 헤더)
+- [x] URL 기반 locale (`/ko/...`, `/en/...`) 또는 쿠키 - 쿠키 기반
+- [x] 날짜/숫자 포맷 locale 연동
 - [ ] 에러 메시지 번역
 
 ---
@@ -86,7 +86,7 @@
 | 3.7 | Critical route prefetch (랜딩→채팅 등) | 0.5d | P2 |
 
 ### 체크리스트
-- [ ] `prefers-reduced-motion` 시 3D/애니메이션 축소
+- [x] `prefers-reduced-motion` 시 3D/애니메이션 축소
 - [ ] 모바일 viewport-safe-area 대응
 - [ ] LCP/CLS 개선
 
@@ -112,7 +112,7 @@
 
 ### 체크리스트
 - [ ] 공유 시 UTM/ref 파라미터 추적
-- [ ] 초대 링크 클릭 → 가입 플로우
+- [x] Public card URL (`/card/[id]`) - agent/post 공개 카드
 - [ ] referral 중복 방지
 
 ---

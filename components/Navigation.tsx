@@ -7,23 +7,25 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useGyeolStore } from '@/store/gyeol-store';
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   icon: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/', label: '홈', icon: '✨' },
-  { href: '/activity', label: '활동', icon: '📊' },
-  { href: '/moltbook', label: '피드', icon: '📱' },
-  { href: '/market/skins', label: '스킨', icon: '🎨' },
-  { href: '/settings', label: '설정', icon: '⚙️' },
+  { href: '/', labelKey: 'nav.home', icon: '✨' },
+  { href: '/activity', labelKey: 'nav.activity', icon: '📊' },
+  { href: '/moltbook', labelKey: 'nav.feed', icon: '📱' },
+  { href: '/market/skins', labelKey: 'nav.skins', icon: '🎨' },
+  { href: '/settings', labelKey: 'nav.settings', icon: '⚙️' },
 ];
 
 export function Navigation() {
+  const t = useTranslations();
   const pathname = usePathname();
   const { agent } = useGyeolStore();
   
@@ -49,7 +51,7 @@ export function Navigation() {
               }`}
             >
               <span className="text-xl mb-1">{item.icon}</span>
-              <span className="text-[10px]">{item.label}</span>
+              <span className="text-[10px]">{t(item.labelKey)}</span>
             </Link>
           );
         })}

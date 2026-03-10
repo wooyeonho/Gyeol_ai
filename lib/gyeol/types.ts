@@ -88,10 +88,11 @@ export interface ApprovalRequest {
   id: string;
   agent_id: string;
   user_id: string;
-  change_type: 'visual' | 'skill' | 'personality_new' | 'code' | 'image';
+  change_type: 'visual' | 'skill' | 'personality_new' | 'code' | 'image' | 'name' | 'personality' | 'mood' | 'condition';
   current_state: Record<string, any>;
   proposed_state: Record<string, any>;
   gyeol_reason: string;
+  new_value?: string; // 일부 change_type에서 사용
   preview_url?: string;
   status: 'pending' | 'approved' | 'denied' | 'deferred';
   created_at: string;
